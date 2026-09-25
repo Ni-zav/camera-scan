@@ -11,9 +11,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import dev.nizav.documentscanner.R;
 import dev.nizav.documentscanner.ScannerApp;
+import dev.nizav.documentscanner.cv.Boundary8;
+import dev.nizav.documentscanner.cv.CurvedBoundaryCorrector;
 import dev.nizav.documentscanner.cv.ImageEnhancer;
 import dev.nizav.documentscanner.cv.PageDewarper;
-import dev.nizav.documentscanner.cv.PerspectiveCorrector;
 import dev.nizav.documentscanner.cv.Quad;
 import dev.nizav.documentscanner.data.ScanSessionStore;
 import dev.nizav.documentscanner.util.BitmapUtils;
@@ -39,7 +40,7 @@ public final class CropActivity extends AppCompatActivity {
     private Bitmap sourceBitmap;
     private Bitmap baseWarped;
     private Bitmap displayedBitmap;
-    private Quad cropQuad;
+    private Boundary8 cropBoundary;
     private boolean flattened;
     private boolean transformBusy;
 
@@ -122,8 +123,8 @@ public final class CropActivity extends AppCompatActivity {
                     }
                     sourceBitmap = bitmap;
                     displayedBitmap = bitmap;
-                    cropQuad = detected;
-                    cropView.setDocument(bitmap, detected, true);
+                    cropBoundary = Boundary8.fromQuad(detected);
+                    cropView.setDocument(bitmap, cropBoundary, true);
                     flattenButton.setEnabled(true);
                 });
             } catch (Exception e) {
@@ -142,14 +143,14 @@ public final class CropActivity extends AppCompatActivity {
     private void flatten() {
         if (sourceBitmap == null) return;
 
-        cropQuad = cropView.getNormalizedQuad();
+        cropBoundary = cropView.getNormalizedBoundary();
         transformBusy = true;
         flattenButton.setEnabled(false);
         saveButton.setEnabled(false);
         int generation = renderGeneration.incrementAndGet();
 
         worker.execute(() -> {
-            Bitmap warped = PerspectiveCorrector.warp(sourceBitmap, cropQuad);
+            Bitmap warped = CurvedBoundaryCorrector.warp(sourceBitmap, cropBoundary);
             runOnUiThread(() -> {
                 if (generation != renderGeneration.get()
                         || isFinishing()
@@ -191,7 +192,7 @@ public final class CropActivity extends AppCompatActivity {
 
         displayedBitmap = sourceBitmap;
         flattened = false;
-        cropView.setDocument(sourceBitmap, cropQuad, true);
+        cropView.setDocument(sourceBitmap, cropBoundary, true);
         filterBar.setVisibility(View.GONE);
         flattenButton.setText(R.string.flatten);
         saveButton.setEnabled(false);

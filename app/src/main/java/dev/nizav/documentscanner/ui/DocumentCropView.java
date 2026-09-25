@@ -6,13 +6,14 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import dev.nizav.documentscanner.cv.Quad;
+import dev.nizav.documentscanner.cv.Boundary8;
 
 import org.opencv.core.Point;
 
@@ -20,21 +21,17 @@ public final class DocumentCropView extends View {
     private final Paint bitmapPaint = new Paint(
             Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG
     );
-    private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path quadPath = new Path();
+    private final Paint edgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint cornerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint midpointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path boundaryPath = new Path();
     private final float density;
 
-    private final float[] normalized = {
-            0.05f, 0.05f,
-            0.95f, 0.05f,
-            0.95f, 0.95f,
-            0.05f, 0.95f
-    };
+    private final float[] normalized = Boundary8.fullFrame().toFloatArray();
 
     private Bitmap bitmap;
     private boolean editing;
-    private int activeCorner = -1;
+    private int activeHandle = -1;
 
     private float drawLeft;
     private float drawTop;
@@ -45,41 +42,48 @@ public final class DocumentCropView extends View {
         super(context, attrs);
         density = getResources().getDisplayMetrics().density;
 
-        linePaint.setColor(Color.WHITE);
-        linePaint.setStyle(Paint.Style.STROKE);
-        linePaint.setStrokeWidth(2.5f * density);
+        edgePaint.setColor(Color.WHITE);
+        edgePaint.setStyle(Paint.Style.STROKE);
+        edgePaint.setStrokeWidth(2.5f * density);
 
-        handlePaint.setColor(Color.WHITE);
-        handlePaint.setStyle(Paint.Style.FILL);
+        cornerPaint.setColor(Color.WHITE);
+        cornerPaint.setStyle(Paint.Style.FILL);
+
+        midpointPaint.setColor(Color.argb(235, 210, 235, 255));
+        midpointPaint.setStyle(Paint.Style.FILL);
 
         setBackgroundColor(Color.BLACK);
     }
 
-    public void setDocument(Bitmap bitmap, @Nullable Quad quad, boolean editing) {
+    public void setDocument(
+            Bitmap bitmap,
+            @Nullable Boundary8 boundary,
+            boolean editing
+    ) {
         this.bitmap = bitmap;
         this.editing = editing;
 
-        if (quad != null) {
-            float[] q = quad.toFloatArray();
-            System.arraycopy(q, 0, normalized, 0, 8);
-            normalizeOrder();
+        if (boundary != null) {
+            float[] values = boundary.toFloatArray();
+            System.arraycopy(values, 0, normalized, 0, 16);
         } else if (!editing) {
-            normalized[0] = 0f; normalized[1] = 0f;
-            normalized[2] = 1f; normalized[3] = 0f;
-            normalized[4] = 1f; normalized[5] = 1f;
-            normalized[6] = 0f; normalized[7] = 1f;
+            float[] full = Boundary8.fullFrame().toFloatArray();
+            System.arraycopy(full, 0, normalized, 0, 16);
         }
 
-        activeCorner = -1;
+        activeHandle = -1;
         invalidate();
     }
 
-    public Quad getNormalizedQuad() {
-        Point[] points = new Point[4];
-        for (int i = 0; i < 4; i++) {
-            points[i] = new Point(normalized[i * 2], normalized[i * 2 + 1]);
+    public Boundary8 getNormalizedBoundary() {
+        Point[] points = new Point[8];
+        for (int i = 0; i < 8; i++) {
+            points[i] = new Point(
+                    normalized[i * 2],
+                    normalized[i * 2 + 1]
+            );
         }
-        return Quad.fromUnordered(points);
+        return new Boundary8(points);
     }
 
     @Override
@@ -101,7 +105,7 @@ public final class DocumentCropView extends View {
         canvas.drawBitmap(
                 bitmap,
                 null,
-                new android.graphics.RectF(
+                new RectF(
                         drawLeft,
                         drawTop,
                         drawLeft + drawWidth,
@@ -114,23 +118,42 @@ public final class DocumentCropView extends View {
             return;
         }
 
-        quadPath.reset();
-        for (int i = 0; i < 4; i++) {
-            float x = toViewX(normalized[i * 2]);
-            float y = toViewY(normalized[i * 2 + 1]);
-            if (i == 0) quadPath.moveTo(x, y);
-            else quadPath.lineTo(x, y);
-        }
-        quadPath.close();
-        canvas.drawPath(quadPath, linePaint);
+        boundaryPath.reset();
+        boundaryPath.moveTo(viewX(Boundary8.TL), viewY(Boundary8.TL));
+        appendQuadratic(
+                boundaryPath,
+                Boundary8.TL,
+                Boundary8.TM,
+                Boundary8.TR
+        );
+        appendQuadratic(
+                boundaryPath,
+                Boundary8.TR,
+                Boundary8.RM,
+                Boundary8.BR
+        );
+        appendQuadratic(
+                boundaryPath,
+                Boundary8.BR,
+                Boundary8.BM,
+                Boundary8.BL
+        );
+        appendQuadratic(
+                boundaryPath,
+                Boundary8.BL,
+                Boundary8.LM,
+                Boundary8.TL
+        );
+        boundaryPath.close();
+        canvas.drawPath(boundaryPath, edgePaint);
 
-        float radius = 9f * density;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 8; i++) {
+            boolean corner = i % 2 == 0;
             canvas.drawCircle(
-                    toViewX(normalized[i * 2]),
-                    toViewY(normalized[i * 2 + 1]),
-                    radius,
-                    handlePaint
+                    viewX(i),
+                    viewY(i),
+                    (corner ? 9f : 6.5f) * density,
+                    corner ? cornerPaint : midpointPaint
             );
         }
     }
@@ -143,29 +166,51 @@ public final class DocumentCropView extends View {
 
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                activeCorner = nearestCorner(event.getX(), event.getY());
-                if (activeCorner >= 0) {
+                activeHandle = nearestHandle(event.getX(), event.getY());
+                if (activeHandle >= 0) {
                     getParent().requestDisallowInterceptTouchEvent(true);
                     return true;
                 }
                 return false;
 
             case MotionEvent.ACTION_MOVE:
-                if (activeCorner < 0) return false;
-                normalized[activeCorner * 2] = clamp01(
+                if (activeHandle < 0) return false;
+
+                float oldX = normalized[activeHandle * 2];
+                float oldY = normalized[activeHandle * 2 + 1];
+
+                float newX = clamp01(
                         (event.getX() - drawLeft) / drawWidth
                 );
-                normalized[activeCorner * 2 + 1] = clamp01(
+                float newY = clamp01(
                         (event.getY() - drawTop) / drawHeight
                 );
+
+                normalized[activeHandle * 2] = newX;
+                normalized[activeHandle * 2 + 1] = newY;
+
+                if (activeHandle % 2 == 0) {
+                    float dx = (newX - oldX) * 0.5f;
+                    float dy = (newY - oldY) * 0.5f;
+                    moveAdjacentMidpoint(
+                            (activeHandle + 7) % 8,
+                            dx,
+                            dy
+                    );
+                    moveAdjacentMidpoint(
+                            (activeHandle + 1) % 8,
+                            dx,
+                            dy
+                    );
+                }
+
                 invalidate();
                 return true;
 
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                if (activeCorner >= 0) {
-                    normalizeOrder();
-                    activeCorner = -1;
+                if (activeHandle >= 0) {
+                    activeHandle = -1;
                     getParent().requestDisallowInterceptTouchEvent(false);
                     invalidate();
                     return true;
@@ -177,14 +222,32 @@ public final class DocumentCropView extends View {
         }
     }
 
-    private int nearestCorner(float x, float y) {
-        float hitRadius = 52f * density;
+    private void appendQuadratic(
+            Path path,
+            int start,
+            int midpoint,
+            int end
+    ) {
+        float sx = viewX(start);
+        float sy = viewY(start);
+        float mx = viewX(midpoint);
+        float my = viewY(midpoint);
+        float ex = viewX(end);
+        float ey = viewY(end);
+
+        float cx = 2f * mx - 0.5f * (sx + ex);
+        float cy = 2f * my - 0.5f * (sy + ey);
+        path.quadTo(cx, cy, ex, ey);
+    }
+
+    private int nearestHandle(float x, float y) {
+        float hitRadius = 48f * density;
         float bestDistance = hitRadius;
         int best = -1;
 
-        for (int i = 0; i < 4; i++) {
-            float dx = x - toViewX(normalized[i * 2]);
-            float dy = y - toViewY(normalized[i * 2 + 1]);
+        for (int i = 0; i < 8; i++) {
+            float dx = x - viewX(i);
+            float dy = y - viewY(i);
             float distance = (float) Math.hypot(dx, dy);
             if (distance < bestDistance) {
                 bestDistance = distance;
@@ -194,17 +257,25 @@ public final class DocumentCropView extends View {
         return best;
     }
 
-    private void normalizeOrder() {
-        float[] ordered = getNormalizedQuad().toFloatArray();
-        System.arraycopy(ordered, 0, normalized, 0, 8);
+    private void moveAdjacentMidpoint(
+            int midpointIndex,
+            float dx,
+            float dy
+    ) {
+        normalized[midpointIndex * 2] = clamp01(
+                normalized[midpointIndex * 2] + dx
+        );
+        normalized[midpointIndex * 2 + 1] = clamp01(
+                normalized[midpointIndex * 2 + 1] + dy
+        );
     }
 
-    private float toViewX(float x) {
-        return drawLeft + x * drawWidth;
+    private float viewX(int index) {
+        return drawLeft + normalized[index * 2] * drawWidth;
     }
 
-    private float toViewY(float y) {
-        return drawTop + y * drawHeight;
+    private float viewY(int index) {
+        return drawTop + normalized[index * 2 + 1] * drawHeight;
     }
 
     private static float clamp01(float value) {
