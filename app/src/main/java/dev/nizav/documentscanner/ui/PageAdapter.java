@@ -14,6 +14,7 @@ import dev.nizav.documentscanner.R;
 import dev.nizav.documentscanner.data.db.PageEntity;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public final class PageAdapter extends RecyclerView.Adapter<PageAdapter.Holder> {
@@ -35,6 +36,7 @@ public final class PageAdapter extends RecyclerView.Adapter<PageAdapter.Holder> 
     ) {
         this.thumbnails = thumbnails;
         this.listener = listener;
+        setHasStableIds(true);
     }
 
     public void setMode(int mode) {
@@ -51,6 +53,44 @@ public final class PageAdapter extends RecyclerView.Adapter<PageAdapter.Holder> 
             items.addAll(pages);
         }
         notifyDataSetChanged();
+    }
+
+    public boolean moveItem(int from, int to) {
+        if (from < 0 || to < 0
+                || from >= items.size() || to >= items.size()
+                || from == to) {
+            return false;
+        }
+
+        if (from < to) {
+            for (int i = from; i < to; i++) {
+                Collections.swap(items, i, i + 1);
+            }
+        } else {
+            for (int i = from; i > to; i--) {
+                Collections.swap(items, i, i - 1);
+            }
+        }
+
+        notifyItemMoved(from, to);
+        notifyItemRangeChanged(
+                Math.min(from, to),
+                Math.abs(from - to) + 1
+        );
+        return true;
+    }
+
+    public List<Long> pageIds() {
+        List<Long> ids = new ArrayList<>(items.size());
+        for (PageEntity page : items) {
+            ids.add(page.id);
+        }
+        return ids;
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return items.get(position).id;
     }
 
     @Override

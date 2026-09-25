@@ -11,7 +11,11 @@ import dev.nizav.documentscanner.data.db.ProjectRow;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class ProjectRepository {
@@ -164,6 +168,51 @@ public final class ProjectRepository {
             for (int index = 0; index < pages.size(); index++) {
                 db.pageDao().setPosition(
                         pages.get(index).id,
+                        index,
+                        now
+                );
+            }
+
+            ProjectEntity project = db.projectDao().get(projectId);
+            if (project != null) {
+                project.updatedAt = now;
+                db.projectDao().update(project);
+            }
+        });
+    }
+
+    public void setPageOrder(
+            long projectId,
+            List<Long> orderedPageIds
+    ) {
+        List<PageEntity> pages = db.pageDao().listForProject(projectId);
+        if (pages.size() != orderedPageIds.size()) {
+            return;
+        }
+
+        Map<Long, PageEntity> byId = new HashMap<>();
+        for (PageEntity page : pages) {
+            byId.put(page.id, page);
+        }
+
+        Set<Long> unique = new HashSet<>(orderedPageIds);
+        if (unique.size() != pages.size() || !byId.keySet().equals(unique)) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        db.runInTransaction(() -> {
+            for (PageEntity page : pages) {
+                db.pageDao().setPosition(
+                        page.id,
+                        page.position + 100000,
+                        now
+                );
+            }
+
+            for (int index = 0; index < orderedPageIds.size(); index++) {
+                db.pageDao().setPosition(
+                        orderedPageIds.get(index),
                         index,
                         now
                 );
