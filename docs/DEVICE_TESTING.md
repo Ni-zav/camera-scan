@@ -1,311 +1,267 @@
-# Real-Device Scanner Test Matrix
+# Real-Device Validation Matrix
 
-Compilation and lint cannot tell us whether a scanner is good. Camera exposure, focus, YUV layout, glare, paper/background contrast, and OEM camera behavior require real-device validation.
+Use this after building the current project-first version.
 
-Use this matrix before changing CV thresholds or declaring scanner quality stable.
+## Device record
 
-## Record for every test device
+For every run record:
 
-Capture:
-
-- manufacturer/model
-- Android version
-- API level
-- RAM
-- rear-camera resolution used by CameraX if known
-- screen resolution/aspect ratio
-- whether Google Play services is present
 - app commit SHA
-- debug or release build
-
-Do not compare results from unknown app revisions.
-
-## Basic functional flow
-
-- [ ] Fresh install asks for Camera permission
-- [ ] Denying Camera permission does not crash
-- [ ] Granting Camera permission opens preview
-- [ ] Preview fills the expected region
-- [ ] Tap to focus responds
-- [ ] Torch toggles on a device with flash
-- [ ] Torch control remains harmless on a device without flash
-- [ ] Manual capture succeeds
-- [ ] Crop editor opens with a reasonable proposed quad
-- [ ] Four corner handles are individually draggable
-- [ ] Perspective flatten produces the expected orientation/aspect ratio
-- [ ] Page can be added to the session
-- [ ] Second/third pages can be added
-- [ ] Pages can be reordered
-- [ ] Pages can be deleted
-- [ ] New session clears current session only after confirmation
-
-## Live overlay geometry
-
-The overlay must track the paper itself, not merely look approximately centered.
-
-Test:
-
-- [ ] paper centered
-- [ ] paper touching near left edge
-- [ ] paper touching near right edge
-- [ ] paper near top
-- [ ] paper near bottom
-- [ ] portrait page
-- [ ] landscape page
-- [ ] 20-40 degree camera tilt
-
-Fail if a persistent systematic offset appears between visible paper edges and overlay edges.
-
-If it fails on one device, investigate ViewPort/crop/rotation metadata first. Do not add arbitrary display offsets.
-
-## Detection backgrounds
-
-Test one ordinary A4/Letter sheet on:
-
-- [ ] dark matte desk
-- [ ] wooden desk
-- [ ] patterned surface
-- [ ] white/light desk
-- [ ] fabric
-- [ ] another larger sheet of paper beneath it
-
-Record whether:
-
-- live contour appears
-- post-capture automatic crop succeeds
-- Hough fallback helps
-- GrabCut fallback helps
-- manual crop is required
-
-Manual crop being required in an adversarial scene is acceptable. A confidently wrong automatic crop is more important to investigate.
-
-## Lighting
-
-### Low light
-
-- [ ] room ambient only
-- [ ] auto capture refuses truly blurred/dark frames
-- [ ] torch improves quality when enabled
-- [ ] manual capture remains possible
-
-### Bright light
-
-- [ ] bright office light
-- [ ] near-window daylight
-- [ ] auto capture does not fire on heavily clipped paper
-- [ ] printed text remains legible after Paper clean
-
-### Uneven illumination
-
-- [ ] shadow from phone across page
-- [ ] shadow across one page corner
-- [ ] warm lamp from one side
-- [ ] Paper clean reduces low-frequency shading without erasing ink
-
-## Motion/focus
-
-- [ ] move phone slowly while page is detected
-- [ ] overlay does not wildly jump frame to frame
-- [ ] auto capture waits for stability
-- [ ] deliberately defocus
-- [ ] auto capture waits while blur score is poor
-- [ ] refocus and hold steady
-- [ ] auto capture eventually fires once
-- [ ] no immediate duplicate capture after returning from crop
-
-Do not tune the Laplacian threshold from one phone only. Different camera sharpening pipelines can shift the measured variance.
-
-## Paper geometry
-
-- [ ] page nearly front-on
-- [ ] strong perspective trapezoid
-- [ ] one corner close to frame edge
-- [ ] page partially outside frame
-- [ ] small page occupying <~20% of camera image
-- [ ] receipt/narrow document
-
-Verify both proposed crop and final homography.
-
-## Glare
-
-Use a glossy page or laminated document:
-
-- [ ] mild glare
-- [ ] glare across one edge
-- [ ] severe center glare
-
-Expected: manual crop may be necessary when glare destroys a boundary. The app must remain usable.
-
-## Finger repair
-
-Use a plain page and deliberately hold a corner.
-
-- [ ] finger near outer page edge
-- [ ] finger not present
-- [ ] skin-colored printed element near page edge
-- [ ] large photo containing skin near edge
-
-Finger fix should:
-
-- be opt-in
-- refuse implausibly huge masks
-- avoid changing the page when no conservative mask is accepted
-
-If it damages legitimate page content, tighten the mask; do not make the feature automatic.
-
-## Paper clean
-
-Compare Original vs Paper clean:
-
-- [ ] clean white document
-- [ ] gray/recycled paper
-- [ ] yellowish paper
-- [ ] strong shadow
-- [ ] colored handwriting
-- [ ] photo-heavy brochure
-
-The filter should improve paper uniformity without turning meaningful colors into artifacts.
-
-## Dewarp
-
-Use:
-
-- [ ] flat printed page
-- [ ] slightly curved book page
-- [ ] strongly curved book page
-- [ ] blank page
-- [ ] image/photo-heavy page
-- [ ] page with many horizontal text lines
-
-Expected:
-
-- flat pages should usually report no reliable curve
-- slight/moderate text-page bowing can be corrected
-- blank/photo-heavy pages may not produce enough baseline evidence and should be rejected
-- output must not show severe strip seams
-
-The heuristic is not a replacement for learned 3D page reconstruction.
-
-## Gallery import
-
-- [ ] import one image
-- [ ] import several images
-- [ ] import 20 images
-- [ ] cancel picker
-- [ ] one provider item becomes unreadable
-- [ ] rotate through each crop flow
-- [ ] imported image with EXIF rotation
-- [ ] large phone photo
-
-The queue should process one source at a time without requesting broad storage permission.
-
-## Session stress
-
-Create:
-
-- [ ] 5-page session
-- [ ] 20-page session
-
-During the session:
-
-- [ ] reorder first -> last
-- [ ] reorder last -> first
-- [ ] delete middle page
-- [ ] add more pages after reorder/delete
-- [ ] leave and reopen Pages screen
-- [ ] start New session
-
-Watch for:
-
-- page-order collisions
-- stale filenames
-- excessive memory growth
-- UI freeze
-
-## OCR
-
-Use pages containing:
-
-- [ ] clean printed English
-- [ ] mixed upper/lowercase
-- [ ] numbers/currency
-- [ ] small text
-- [ ] skewed text after flatten
-- [ ] low-contrast text
-- [ ] handwriting
-- [ ] non-Latin script
-
-The bundled recognizer is Latin-focused. Non-Latin text is a known limitation, not a regression.
-
-## Searchable PDF
-
-Export a multi-page session.
+- device model
+- Android/API version
+- RAM
+- screen size/aspect ratio
+- debug or release
+- whether camera hardware exists
+- whether Google Play services exists
+
+## 1. Home / projects
+
+Fresh install:
+
+- [ ] opens Documents home, not camera
+- [ ] does not request Camera permission
+- [ ] empty state looks intentional
+- [ ] New document opens Material dialog
+- [ ] an empty document can be created
+- [ ] empty document survives leaving/reopening app
+- [ ] first page becomes project cover
+- [ ] page count updates
+- [ ] dynamic color does not make text/icons unreadable
+- [ ] dark theme remains readable
+
+## 2. Project page views
+
+With at least 5 pages:
+
+- [ ] Gallery is default
+- [ ] gallery shows two-column larger previews
+- [ ] List mode shows small thumbnail on left
+- [ ] switching Gallery/List animates without losing scroll/page state unexpectedly
+- [ ] page tap opens Page Details
+- [ ] returning preserves document
+- [ ] 20+ pages scroll without loading full-resolution page bitmaps into every row
+
+## 3. Import-only flow
+
+Without granting Camera permission:
+
+- [ ] create document
+- [ ] import one photo
+- [ ] import several photos
+- [ ] cancel Photo Picker
+- [ ] import queue opens each image sequentially in editor
+- [ ] pages save to the correct project
+- [ ] interrupt import, open another project, verify old queue cannot land in the other project
+
+If testing a device without camera hardware:
+
+- [ ] app installs
+- [ ] projects/import/OCR remain usable
+
+## 4. Camera permission lifecycle
+
+From Project -> Scan page:
+
+- [ ] Camera permission is requested here, not earlier
+- [ ] denial exits scanner safely
+- [ ] grant starts camera
+- [ ] Back releases camera
+- [ ] reopen Scan reacquires camera
+- [ ] Home -> resume works
+- [ ] lock/unlock works
+- [ ] repeated Scan -> Crop -> Scan does not leak camera
+- [ ] no duplicate auto capture after returning from crop
+
+## 5. Live overlay
+
+Test paper:
+
+- centered
+- near each screen edge
+- portrait
+- landscape
+- 20-40° perspective
 
 Verify:
 
-- [ ] PDF opens
-- [ ] all pages appear in session order
-- [ ] portrait and landscape pages render correctly
-- [ ] visible page exactly matches raster scan
-- [ ] text search finds obvious OCR-recognized words
-- [ ] copying/searching text does not shift visible raster
-- [ ] one OCR-poor page does not prevent PDF generation
+- [ ] overlay follows paper boundary
+- [ ] no stable systematic offset
+- [ ] smoothing reduces jitter without excessive lag
+- [ ] overlay disappears after detection loss
 
-## MediaStore and sharing
+Do not fix device-specific drift with arbitrary screen offsets. Investigate CameraX ViewPort/crop/rotation mapping.
+
+## 6. Auto capture quality
+
+Test:
+
+- [ ] normal light
+- [ ] low light
+- [ ] overexposed page
+- [ ] deliberate hand motion
+- [ ] deliberate defocus
+- [ ] refocus + hold steady
+
+Expected:
+
+- dark/bright/blurry frames delay auto capture
+- manual shutter remains available
+- a stable good frame fires once
+
+Do not tune the Laplacian threshold from a single phone.
+
+## 7. 8-handle page boundary
+
+In Adjust page, verify there are:
+
+- [ ] four corner handles
+- [ ] top midpoint
+- [ ] right midpoint
+- [ ] bottom midpoint
+- [ ] left midpoint
+
+Test flat page:
+
+- [ ] midpoints begin centered on straight detected edges
+- [ ] flatten remains visually equivalent to normal perspective crop
+
+Test bowed edges:
+
+- [ ] drag top midpoint to a curved top edge
+- [ ] drag bottom midpoint independently
+- [ ] drag left/right midpoint independently
+- [ ] rendered white boundary follows the visible curve
+- [ ] flatten straightens that boundary in output
+
+Test corners:
+
+- [ ] moving a corner also moves adjacent midpoint partially so the curve does not violently kink
+- [ ] all handles remain clamped to image bounds
+
+Look for:
+
+- folds
+- self-intersecting boundary
+- extreme handle placement
+- severe stretching near corners
+
+The editor does not currently reject every pathological self-intersection, so adversarial handle placement is a useful test.
+
+## 8. Curved-boundary performance
+
+Use a 12-20 MP source.
+
+Check:
+
+- [ ] Flatten does not block UI thread
+- [ ] no OOM
+- [ ] 4096px output cap respected
+- [ ] repeated Adjust -> Flatten cycles return to a stable memory range
+
+The remap should use banded map allocation rather than two full-page maps.
+
+## 9. Page cleanup
+
+Compare Original against:
+
+- Clean color
+- Paper clean
+- Grayscale
+- B&W
+- Finger fix
+- Dewarp
+
+Test:
+
+- clean white paper
+- gray/yellow paper
+- side shadow
+- phone shadow
+- colored ink
+- photo-heavy page
+- finger on edge
+- skin-colored printed image near edge
+- slightly curved book page
+- blank page
+
+Finger fix and Dewarp should stay user-invoked.
+
+## 10. OCR: one page
+
+Open Page Details:
+
+- [ ] page image displays
+- [ ] Extract text runs off UI thread
+- [ ] OCR text becomes editable
+- [ ] Save text persists manual edit
+- [ ] reopen page retains text
+- [ ] detected data updates
+
+Text samples:
+
+- email address
+- Indonesian phone number
+- ISO/slash/date
+- Rp/IDR amount
+- ordinary paragraph
+
+Confirm detected-data cards do not claim semantic meaning beyond matching these simple fields.
+
+## 11. OCR: project
+
+With multiple pages:
+
+- [ ] Extract text indexes pages sequentially
+- [ ] progress changes page by page
+- [ ] indexed count updates
+- [ ] project text preview appears
+- [ ] page rows show Text ready
+- [ ] UI remains responsive during OCR
+
+Also test:
+
+- [ ] small text
+- [ ] low contrast
+- [ ] handwriting
+- [ ] non-Latin script
+
+Non-Latin is a documented limitation of the bundled Latin recognizer.
+
+## 12. Searchable PDF
+
+Export a mixed portrait/landscape project:
+
+- [ ] PDF opens
+- [ ] page order matches project order
+- [ ] visible raster matches processed page
+- [ ] obvious OCR words can be searched
+- [ ] text extraction works where recognition succeeds
+- [ ] weak OCR on one page does not crash whole export
+- [ ] export also refreshes stored OCR metadata
 
 Android 10+:
 
-- [ ] PDF appears under Downloads/PaperScanner
-- [ ] JPEG pages appear under Pictures/PaperScanner
-- [ ] no zero-byte pending items remain after a successful export
-- [ ] share chooser opens
-- [ ] recipient app can read the shared PDF
-- [ ] recipient does not receive a raw filesystem path
+- [ ] PDF under Downloads/CameraScan
+- [ ] JPEG pages under Pictures/CameraScan
+- [ ] no zero-byte pending MediaStore items after successful export
+- [ ] share chooser can open PDF in another app
 
-Also test export cancellation/app termination during export if robustness around partial MediaStore records becomes a release priority.
+## 13. Persistence
 
-## Lifecycle
+Create multiple projects.
 
-During camera preview:
+- [ ] projects remain after process death
+- [ ] page order remains
+- [ ] OCR text remains
+- [ ] OCR structured data remains
+- [ ] app relaunch never creates a new implicit camera/session
+- [ ] deleting a page deletes its stored file
+- [ ] deleting a project in a future UI must cascade page metadata/files consistently
 
-- [ ] Home -> return
-- [ ] lock -> unlock
-- [ ] switch to another app -> return
-- [ ] screen rotation policy is respected
-- [ ] repeated Crop -> camera -> Crop transitions
-- [ ] repeated Pages -> camera transitions
+## 14. Memory
 
-Check for:
-
-- black preview
-- multiple simultaneous analyzer callbacks
-- camera-in-use errors
-- leaked image buffers
-- stale overlay
-- duplicate auto capture
-
-## Memory/performance observations
-
-Do not invent target FPS/latency numbers before measuring devices.
-
-What should be structurally true:
-
-- preview remains interactive while CV runs
-- analysis never queues an unbounded frame backlog
-- memory does not grow continuously while preview sits idle
-- repeated capture/edit cycles return near a stable memory baseline
-- filters/dewarp/export do not block touch rendering on the main thread
-- OCR/export handles pages sequentially
-- 20-page session export does not load all full-size bitmaps simultaneously
-
-Useful tools:
-
-- Android Studio Profiler
-- Perfetto
-- `adb shell dumpsys meminfo dev.nizav.documentscanner`
-- `adb logcat`
-
-Example memory snapshot:
+Useful command:
 
 ```bash
 adb shell dumpsys meminfo dev.nizav.documentscanner
@@ -313,28 +269,43 @@ adb shell dumpsys meminfo dev.nizav.documentscanner
 
 Take comparable snapshots:
 
-1. after cold launch
-2. after 60 seconds preview
-3. after 10 capture/edit cycles
-4. during a 20-page export
-5. after export completes
+1. cold Documents home
+2. after scrolling many project/page thumbnails
+3. 60 seconds camera preview
+4. after 10 Scan -> Crop cycles
+5. during 20-page OCR
+6. during 20-page PDF export
+7. after work completes
 
-## Regression artifacts
+Expected structural behavior:
 
-For a serious tuning pass, keep a small local test corpus with categories such as:
+- camera memory only appears when scanner is open
+- RecyclerView thumbnails stay bounded by sampled decode/LruCache
+- OCR processes pages sequentially
+- export does not load every full page bitmap simultaneously
+- repeated crop cycles do not grow memory indefinitely
+
+## 15. Regression corpus
+
+Keep a private test corpus outside Git:
 
 ```text
 flat-dark-background/
 flat-light-background/
+white-on-white/
 low-light/
 glare/
 shadow/
+bowed-edges/
 curved-book/
 finger/
 receipts/
 photo-heavy/
 ```
 
-Do not commit private/personal documents.
+For geometry changes, save both:
 
-For each algorithm change, compare proposed corner coordinates and final page images against the same corpus before changing thresholds globally.
+- source image
+- final flattened output
+
+This makes 8-handle warp changes comparable instead of subjective.

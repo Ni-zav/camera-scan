@@ -1,581 +1,404 @@
-# Document Scanner Architecture and Research Notes
+# Architecture and Research Notes
 
-Research/implementation baseline: 2026-09-24.
+Implementation baseline: 2026-09-25.
 
-## Goal
+## Product architecture
 
-Build a native Android document scanner with explicit ownership of:
-
-- camera lifecycle
-- coordinate systems
-- document detection
-- crop editing
-- projective flattening
-- enhancement
-- curved-page correction
-- multi-page state
-- OCR
-- PDF/JPEG export
-- memory and latency behavior
-
-The design favors bounded, measurable local processing over opaque server calls.
-
-## High-level architecture
+Camera Scan is now document-first.
 
 ```text
 MainActivity
-├── CameraX Preview
-├── ImageAnalysis
-│   └── DocumentAnalyzer
-│       ├── Y-plane copy
-│       ├── visible crop
-│       ├── orientation normalization
-│       ├── DocumentDetector
-│       ├── QuadConsensus
-│       ├── QuadStabilizer
-│       ├── FrameQualityEstimator
-│       └── AutoCaptureGate
-├── ImageCapture
-└── Photo Picker import
-          |
-          v
-CropActivity
-├── accurate DocumentDetector
-├── manual DocumentCropView
-├── PerspectiveCorrector
-├── PageDewarper (optional)
-└── ImageEnhancer
-          |
-          v
-ScanSessionStore
-├── reorder
-├── delete
-└── new session
-          |
-          v
-SessionExporter
-├── OcrEngine (bundled ML Kit Latin)
-├── searchable PdfDocument
-├── MediaStorePublisher
-└── ShareUtils / FileProvider
+  Documents / Projects
+        |
+        v
+ProjectActivity
+  persistent pages
+  gallery/list modes
+  OCR index + export
+   |          |
+   |          +--> PageDetailActivity
+   |                 OCR/edit/data
+   |
+   +--> Import -> CropActivity
+   |
+   +--> ScanActivity -> CropActivity
+                         |
+                         +--> 8-handle curved boundary
+                         +--> flatten
+                         +--> filters
+                         +--> optional dewarp
+                         +--> ProjectRepository.addPage()
 ```
 
-## Why the live and final paths differ
+The camera stack does not exist on normal home/project browsing.
 
-A common scanner-performance mistake is running final-quality CV on every camera frame.
+## Persistence
 
-The live path only needs a fast, stable proposal. The captured-image path needs the best practical geometry.
+Room 2.8.5 stores metadata.
 
-Therefore:
+### ProjectEntity
 
-### Live
+- id
+- name
+- createdAt
+- updatedAt
 
-- Y plane only
-- CameraX visible crop only
-- ~12.5 analysis attempts/sec maximum
-- working longest edge <= 900 px
-- one primary Canny pass
-- no Hough fallback
-- no GrabCut
-- no OCR
-- no filter/dewarp
-- fixed-size recent-quad consensus
+### PageEntity
 
-### Post capture
+- id
+- projectId
+- position
+- filePath
+- ocrText
+- ocrDataJson
+- ocrUpdatedAt
+- createdAt
+- updatedAt
 
-- bounded RGB bitmap
-- working detection longest edge <= 1600 px
-- multiple edge/threshold passes
-- Hough fallback when contours are weak
-- GrabCut fallback only if earlier geometry remains poor
-- manual crop is always available
-- full perspective correction once
-- optional page restoration once
-- OCR at final export
+Pages use a foreign key with cascade deletion.
 
-The expensive work therefore scales with user actions, not camera FPS.
+Image pixels are not placed in SQLite. Processed JPEGs live in private files storage while Room stores paths and metadata. This avoids large database blobs and keeps page decoding stream/file based.
 
-## Camera lifecycle and coordinate correctness
+Project list rows query page count and first-page cover path in SQL.
 
-Preview, ImageAnalysis, and ImageCapture are bound together using one CameraX `UseCaseGroup` with `PreviewView.getViewPort()`.
+## Material UI architecture
 
-This matters because camera use cases may otherwise receive different sensor crops/resolutions. A raw "analysis pixels -> screen pixels" scale can drift even when the math looks correct.
+The app stays Java/XML Views and uses Material Components 1.14.0.
+
+Material is used for:
+
+- Material 3 Day/Night theme
+- Android dynamic colors where available
+- toolbars
+- cards
+- buttons and segmented view toggle
+- text fields
+- dialogs
+- extended FABs
+- shared-axis activity transitions
+- fade-through state transitions
+
+RecyclerView handles project/page virtualization.
+
+Thumbnail images are:
+
+- sampled down to a bounded size
+- decoded as RGB_565
+- loaded on a two-thread executor
+- cached in a bounded LruCache
+
+This prevents full page bitmaps from being loaded just to render lists.
+
+## Project page views
+
+Gallery mode is default and uses two columns.
+
+List mode uses a single column with a small thumbnail on the left.
+
+Switching layouts does not duplicate page state; both layouts render the same ordered PageEntity list.
+
+## Camera lifecycle
+
+CameraX exists only in ScanActivity.
+
+Preview, ImageAnalysis, and ImageCapture share one CameraX ViewPort.
 
 The analyzer:
 
-1. copies plane 0 / luma,
-2. applies `ImageProxy.getCropRect()`,
-3. rotates the cropped view according to CameraX metadata,
-4. normalizes the final quad to that visible region.
+1. copies only the Y plane
+2. applies ImageProxy crop rect
+3. rotates to display orientation
+4. runs bounded document detection
+5. applies recent-frame consensus/stabilization
+6. computes quality
+7. optionally signals auto-capture
 
-The overlay then uses normalized coordinates directly across the visible PreviewView.
+Every ImageProxy closes in `finally`.
 
-Every `ImageProxy` is closed in `finally`.
+## Live scanner performance
 
-## Live frame data path
+Live path intentionally avoids final-quality operations.
 
-### Y-plane copy
+- Y plane only
+- analysis throttled to roughly 12.5 Hz
+- detector longest edge <= 900 px
+- quality image <= 480 px
+- one analyzer executor
+- KEEP_ONLY_LATEST backpressure
+- reused byte arrays/Mats
+- fixed five-quad median window
+- constant-complexity overlay geometry
 
-Only luma is copied from `YUV_420_888`.
+OCR, Hough fallback, GrabCut, enhancement, curved remapping, and PDF construction are not in the continuous live path.
 
-The implementation handles row stride and pixel stride instead of assuming tightly packed pixels.
+## Automatic boundary detection
 
-Reusable byte arrays and Mats prevent large per-frame Java/native allocation churn.
+The normal detector uses:
 
-Complexity: `O(N)` for source luma pixels.
-
-### Visible crop
-
-The OpenCV crop is a submatrix/header over the copied luma Mat.
-
-Additional pixel-copy complexity: effectively `O(1)` for the submatrix itself.
-
-### Downscale
-
-The longest detector edge is bounded to 900 px.
-
-Document boundaries are low-frequency geometry, so this removes detail that costs CPU but usually does not improve live boundary placement.
-
-Complexity: `O(N)`.
-
-## Core document detector
-
-### Preprocessing
-
-- 5x5 Gaussian blur
+- Gaussian blur
 - Canny
-- morphological close
+- morphology
+- contours
+- CHAIN_APPROX_SIMPLE
+- approxPolyDP
+- convex four-corner validation
+- area/right-angle/rectangularity score
 
-Fixed kernels make these linear in working pixels for practical complexity: `O(N)`.
+Post-capture additionally evaluates:
 
-### Contours
+- second Canny thresholds
+- adaptive thresholding
+- probabilistic Hough line reconstruction
+- GrabCut foreground segmentation fallback
 
-`findContours(..., CHAIN_APPROX_SIMPLE)` extracts candidate boundaries while compressing straight segments.
+Automatic detection seeds the editor. It is not authoritative.
 
-Large-enough contours are approximated with `approxPolyDP` at a small fixed set of epsilon ratios.
+## 8-handle curved boundary model
 
-Candidates must:
+A projective homography assumes all four page sides are straight.
 
-- approximate to exactly four points
-- be convex
-- cover a minimum area
-- have minimum side length
+That is insufficient when a sheet is slightly bowed/curling on a table.
 
-The detector does not globally sort contours. It retains the best candidate while walking them.
-
-The geometric score is:
-
-```text
-0.58 * visible area
-+ 0.27 * right-angle quality
-+ 0.15 * contour/quad rectangularity
-```
-
-This biases toward the large rectangular object expected in document scanning.
-
-## Multi-frame consensus
-
-Raw edge detection jitters by a few pixels because exposure, focus, hand motion, and sensor noise change each frame.
-
-The analyzer maintains a fixed five-quad history and takes the median of each of the eight normalized coordinates.
-
-Because the window size is fixed, the practical cost is `O(1)` per analyzed frame.
-
-A subsequent exponential stabilizer:
-
-- smooths residual motion
-- requires repeated low-motion frames before declaring the page stable
-- removes the overlay after consecutive detection misses
-
-This separates "a rectangle was detected" from "the phone/page is stable enough to capture."
-
-## Capture quality gate
-
-Auto capture also checks:
-
-- mean luminance
-- Laplacian variance as a sharpness proxy
-- document detection score
-- geometric stability
-- several consecutive acceptable frames
-- capture cooldown
-
-This prevents one transient good-looking frame from firing the shutter immediately.
-
-The quality check runs on a further reduced image with longest edge <= 480 px.
-
-## Accurate post-capture recovery
-
-The final detector evaluates, in order:
-
-1. Canny 50/150
-2. Canny 30/100
-3. adaptive Gaussian threshold
-4. probabilistic Hough-line fallback when the best result is weak
-5. GrabCut foreground fallback if geometry still remains weak
-
-### Hough fallback
-
-The fallback extracts long line segments, bounds the candidate set, groups approximately parallel/perpendicular line families, selects extreme opposing lines, intersects them, and scores the resulting quad.
-
-It is post-capture only because line transforms cost more than the normal contour path.
-
-### GrabCut fallback
-
-GrabCut is used as a classical foreground segmentation proposal with an inset foreground rectangle.
-
-The resulting probable/definite foreground mask is cleaned and fed back into the same quad contour scoring.
-
-It is intentionally penalized slightly so a solid geometric edge/Hough result wins whenever both are plausible.
-
-### Why there is no custom trained document model
-
-No custom TFLite/ONNX document-segmentation model is committed.
-
-That is intentional:
-
-- a model needs a known training/evaluation provenance
-- its license must permit redistribution
-- accuracy needs to be measured on our target device/document distribution
-- a random binary model would make the "native research" less auditable, not more
-
-The deterministic fallbacks make the entire scanner buildable from source today.
-
-A trained segmentation model can later be added behind the same normalized-quad interface and benchmarked against this baseline.
-
-## Manual crop is the reliability boundary
-
-Automatic detection never blocks a scan.
-
-If all automatic methods fail, the captured image opens with a safe inset rectangle. The user can drag all four corners.
-
-Normalized crop coordinates are independent from:
-
-- screen density
-- preview size
-- device resolution
-- decoded bitmap size
-
-This is important for correctness and UI simplicity.
-
-## Perspective flattening
-
-A flat page photographed under perspective is modeled by a homography.
-
-The selected corners:
+The editor now models eight points:
 
 ```text
-top-left
-top-right
-bottom-right
-bottom-left
+P0 TL
+P1 top midpoint
+P2 TR
+P3 right midpoint
+P4 BR
+P5 bottom midpoint
+P6 BL
+P7 left midpoint
 ```
 
-are mapped to a rectangle using `getPerspectiveTransform`.
+Each side is a quadratic Bézier.
 
-Destination dimensions come from opposing edge lengths.
+For start point `A`, visible midpoint `M`, endpoint `B`, the quadratic control point is derived so the curve passes through M at t=0.5:
 
-`warpPerspective` produces the flattened page with the longest output edge capped at 4096 px.
+```text
+C = 2M - 0.5(A + B)
+```
 
-Complexity is proportional to destination pixels: `O(M)`.
+Then:
 
-## Page enhancement
+```text
+Q(t) = (1-t)^2 A + 2(1-t)t C + t^2 B
+```
 
-### Original
+This means the side handle is intuitive: it lies on the paper boundary itself, not at the abstract Bézier control location.
 
-Direct copy of the flattened page.
+### Curved quadrilateral -> rectangle
 
-### Clean color
+For normalized destination coordinates u/v, CurvedBoundaryCorrector evaluates:
 
-- RGB -> Lab
-- CLAHE on lightness
-- convert back
-- mild unsharp mask
+```text
+S(u,v) =
+    (1-v) Top(u)
+  + v Bottom(u)
+  + (1-u) Left(v)
+  + u Right(v)
+  - B(u,v)
+```
 
-### Paper clean
+where `B(u,v)` is bilinear interpolation of the four corners.
 
-Designed for uneven illumination/shadows:
+This is a transfinite/Coons-style interpolation. It honors all four curved page boundaries while smoothly interpolating the interior.
 
-- RGB -> Lab
-- estimate smooth low-frequency illumination using large Gaussian blur
-- normalize lightness against the estimated background
-- mild CLAHE
-- pull weak chroma moderately toward neutral paper
+The mapping is supplied to OpenCV `remap`.
 
-It is deterministic illumination correction, **not** a learned stain-restoration model.
+### Memory optimization
 
-### Grayscale
+A full-resolution remap normally requires two output-sized float maps.
 
-Direct luminance conversion.
+Instead this implementation generates maps in bands of 128 destination rows.
 
-### Black & white
+For destination width W and band height H:
 
-- grayscale
-- small blur
-- adaptive Gaussian threshold
+```text
+map memory ≈ 2 * W * H * sizeof(float)
+```
 
-Adaptive thresholding tolerates nonuniform illumination better than one global threshold.
+instead of:
 
-### Finger repair
+```text
+2 * W * fullPageHeight * sizeof(float)
+```
 
-This is intentionally conservative and user-invoked.
+The output longest edge is capped at 4096 px.
 
-It:
+Runtime remains approximately O(output pixels).
 
-- converts to YCrCb
-- finds a broad plausible skin-color region
-- restricts the mask to an outer page band
-- rejects masks that are too tiny or too large
-- morphologically closes/dilates the accepted mask
-- runs Telea inpainting
+## Why PageDewarper still exists
 
-This can still misclassify skin-colored printed content near an edge, which is why it is never automatic.
+Boundary curvature and internal page curvature are related but different.
 
-Enhancement filters are linear in output pixels for their fixed/local operations in practical use: approximately `O(M)`.
+The 8-handle editor uses user-visible outer edges.
 
-## Curved-page dewarp
+PageDewarper runs after flattening and looks for vertical displacement of horizontal text structure across the page. It can compensate for moderate book/page bow even when outer boundaries alone do not describe the internal surface.
 
-Perspective correction cannot flatten a genuinely curved book/page surface.
+It stays optional because image/photo-heavy pages may not provide reliable text-line structure.
 
-The optional dewarp performs a conservative baseline-based correction:
+## Crop/edit threading
 
-1. downscale analysis to <= 720 px longest edge
-2. grayscale and Otsu threshold
-3. horizontal morphology to emphasize text baselines
-4. split the page into 24 vertical bins
-5. compute row projections per bin
-6. cross-correlate each projection with the center reference
-7. smooth the estimated vertical displacement
-8. reject low-confidence / tiny deformation
-9. render 72 shifted vertical strips at final size
+CropActivity owns a serial worker for:
 
-The analysis dimensions and bin count are bounded constants.
+- decode
+- accurate detection
+- curved flattening
+- filters
+- dewarp
+- final page encoding
 
-Rendering remains approximately linear in output pixels.
+A render generation counter discards stale filter/dewarp results.
 
-Why strips instead of one full-resolution `remap`? A conventional full-resolution remap needs large X/Y float maps. The strip renderer avoids two additional image-sized float buffers while still correcting moderate vertical page bowing.
-
-This is not a full 3D reconstruction and should remain optional.
+The UI thread handles only view state and drawing.
 
 ## Import path
 
-Multiple gallery images are selected with Android Photo Picker and copied sequentially into a bounded cache queue.
+Android Photo Picker selects up to 20 images.
 
-Benefits:
-
-- no broad storage permission
-- the crop activity receives ordinary local Files
-- no long-lived dependency on a provider URI permission
-- only one imported page is edited at a time
-
-I/O complexity is `O(B)` for imported bytes.
-
-## Session lifecycle
-
-Processed pages are stored in the app cache using ordered filenames.
-
-The session supports:
-
-- append page
-- list
-- reorder
-- delete
-- clear/new session
-
-Reordering is implemented with temporary filenames so collisions cannot overwrite another page.
-
-Only processed page images are retained. Original captures/imports are disposable queue/cache sources.
-
-## OCR
-
-The project uses:
+Imported content is copied into a cache queue scoped by project ID:
 
 ```text
-com.google.mlkit:text-recognition:16.0.1
+cache/document_scanner_import_queue/project_<id>/
 ```
 
-the bundled Latin text recognizer.
+Only one source is sent through CropActivity at a time.
 
-The model is packaged with the APK and works without a runtime model download.
+This avoids:
 
-OCR is performed:
+- broad storage permission
+- holding many page bitmaps simultaneously
+- an interrupted queue accidentally being attached to a different document
 
-- one page at a time
-- only during final export
-- off the UI thread
+## OCR architecture
 
-OCR is not placed in the camera analyzer.
+Bundled ML Kit Latin text recognition runs locally.
 
-The neural-network internals are library/model implementation details, so its exact algorithmic complexity is not claimed here.
+OCR can be requested:
 
-## Searchable PDF construction
+- on one page
+- across a project sequentially
+- during PDF export
 
-For each page:
+Page OCR text and structured data are persisted in Room.
 
-1. decode a bounded export bitmap
-2. run OCR
-3. create portrait/landscape A4 PdfDocument page
-4. map recognized lines into PDF coordinates
-5. draw OCR text operations
-6. draw the raster scan over the text
+DocumentDataExtractor derives simple fields from recognized text:
+
+- dates
+- money-looking amounts
+- email addresses
+- phone numbers
+
+This extractor is deterministic regex/rule logic. It should not be described as semantic invoice/receipt understanding.
+
+### OCR memory behavior
+
+Pages are recognized one at a time.
+
+The OCR decode longest edge is bounded to 2200 px.
+
+Project-wide OCR does not hold all page bitmaps simultaneously.
+
+## Searchable PDF
+
+For every page:
+
+1. decode bounded page bitmap
+2. recognize OCR text
+3. update persisted page OCR metadata
+4. create A4 portrait/landscape PdfDocument page
+5. emit recognized text drawing operations
+6. draw the scan raster over those text operations
 7. finish the page
 
-The raster completely covers the text visually, preserving the scanned appearance while PDF search/text extraction can still find the hidden text operators.
+The raster controls appearance. The underlying PDF text operations enable search/text extraction.
 
-If OCR fails on a page, export continues without text for that page.
+An OCR failure should not make the page raster itself unexportable.
 
-## Export and sharing
+## Export/storage
 
-Permanent export copies are written into app-scoped Documents storage.
+Persistent app data:
 
-Android 10+ also uses MediaStore:
+```text
+Room: camera_scan.db
+Files: files/projects/<projectId>/pages/
+```
 
-- PDFs in Downloads/PaperScanner
-- JPEGs in Pictures/PaperScanner
-- `IS_PENDING` is used while bytes are being written
+Temporary:
 
-Sharing uses FileProvider content URIs with temporary read permission.
+```text
+cache/
+```
 
-No raw `file://` path is exposed to another app.
+Android 10+ public export:
 
-## Threading
+```text
+Downloads/CameraScan/
+Pictures/CameraScan/
+```
 
-### Camera
+FileProvider is used for sharing.
 
-One dedicated executor owns ImageAnalysis ordering.
+No raw file URI is exposed.
 
-The main thread only receives compact geometry/quality results and draws the overlay.
+## Privacy/lifecycle
 
-### Crop editor
+- no INTERNET permission
+- no broad media/storage permission
+- camera hardware is optional
+- camera permission requested only in ScanActivity
+- import/OCR/project browsing work without opening CameraX
+- bundled OCR model
+- no cloud document upload
 
-One serial worker owns:
-
-- decode
-- accurate detect
-- warp
-- dewarp
-- filters
-- add-page encode
-
-A monotonically increasing generation ID rejects stale filter/dewarp results.
-
-### Session export
-
-One serial worker owns OCR/PDF/export.
-
-This avoids multiple page-sized transforms/OCR jobs fighting for heap and native memory at once.
-
-## Memory strategy
-
-Live:
-
-- reusable Y byte buffer
-- reusable stride scratch buffer
-- reusable OpenCV Mats
-- zero-copy crop submatrix
-- bounded CV resolution
-- no RGB Android Bitmap per analysis frame
-
-Post capture:
-
-- source decode <= 3072 px longest edge
-- detector working image <= 1600 px
-- perspective output <= 4096 px
-- dewarp analysis <= 720 px
-- export decode <= 2200 px
-- pages processed sequentially
-- filters processed sequentially
-
-The design chooses predictable peaks instead of maximum raw camera resolution.
-
-## Complexity summary
+## Complexity overview
 
 Let:
 
-- `N` = live working pixels
-- `P` = retained contour boundary points
-- `M` = processed/export page pixels
-- `B` = imported/exported bytes
+- N = live working pixels
+- P = retained contour boundary points
+- M = output/edit page pixels
+- B = copied file bytes
+- K = number of project pages
 
-| Stage | Practical complexity | Frequency |
-|---|---:|---|
-| Y-plane copy | O(N) | <= ~12.5 Hz |
-| crop submatrix | O(1) header | <= ~12.5 Hz |
-| rotate/downscale | O(N) | <= ~12.5 Hz |
-| blur/Canny/morphology | O(N) | <= ~12.5 Hz |
-| contour extraction | O(N + P) | <= ~12.5 Hz |
-| quad scoring | O(P), no global sort | <= ~12.5 Hz |
-| 5-quad consensus | O(1), fixed window | <= ~12.5 Hz |
-| quality estimate | O(N) on <=480px image | <= ~12.5 Hz |
-| overlay | O(1), 4 edges + handles | result updates |
-| accurate multipass detection | several O(N + P) passes | once/source |
-| Hough fallback | higher/data-dependent, bounded use | difficult source only |
-| GrabCut fallback | iterative, expensive | difficult source only |
-| perspective warp | O(M) | once/crop |
-| page enhancement | ~O(M) | user action |
-| dewarp render | ~O(M), fixed strips | user action |
-| file import/copy | O(B) | imported sources |
-| OCR | model-dependent | once/page/export |
-| raster PDF/JPEG | O(M) | once/page/export |
+| Stage | Practical complexity |
+|---|---:|
+| Y-plane copy | O(N) |
+| live blur/Canny/morphology | O(N) |
+| contour extraction | O(N + P) |
+| quad score | O(P) |
+| 5-frame consensus | O(1), fixed window |
+| live quality | O(N) on <=480px image |
+| overlay | O(1) |
+| accurate detection | several O(N + P) passes |
+| curved boundary remap | O(M) |
+| filters | ~O(M) |
+| dewarp | ~O(M) with fixed bins/strips |
+| import/copy | O(B) |
+| Room page listing | O(K) |
+| thumbnail decode | bounded sampled decode |
+| project OCR | K sequential OCR operations |
+| export | K sequential OCR/render operations |
 
-## UI efficiency
+## Known technical limits
 
-The camera view hierarchy is intentionally small:
+- eight handles give one quadratic bend per edge, not arbitrary spline control
+- dewarp is not learned 3D surface reconstruction
+- OCR is Latin-focused
+- regex field extraction is deliberately simple
+- page originals/edit recipes are not yet retained for lossless recrop later
+- manually edited OCR text is updated by a later full-project OCR/export run
+- classical paper detection can still fail under extreme glare/occlusion/low contrast
 
-- PreviewView
-- one custom quad overlay
-- status text
-- torch
-- auto toggle
-- import
-- shutter
-- pages button
+## Validation
 
-The crop surface draws:
+CI checks:
 
-- one bitmap
-- one four-edge path
-- four handles
+```text
+:app:assembleDebug
+:app:lintDebug
+```
 
-No RecyclerView, Compose runtime, animation loop, or idle render loop is used for the scanner hot path.
-
-## Privacy/security properties
-
-- no INTERNET permission
-- no broad external-storage permission
-- Photo Picker/provider input
-- cache for temporary working data
-- MediaStore for public exports on API 29+
-- FileProvider for sharing
-- no embedded secret/API key
-- no private signing key in the repository
-
-## Known failure modes
-
-Expect classical geometry to be challenged by:
-
-- white page on nearly identical white background
-- severe glare
-- fully covered corners
-- strong rectangular objects larger than the paper
-- page occupying too little of the image
-- extreme motion blur
-- folds/curls with very little printed horizontal structure
-- illustrations/photos where dewarp baseline correlation has little signal
-
-The manual crop/editor remains the final fallback.
-
-## Recommended future experiments
-
-These should be measured against the current baseline rather than added blindly:
-
-- retain original sources for post-session recrop
-- stronger page-session thumbnail UI
-- language-selectable bundled OCR models
-- custom document segmentation model with a licensed/reproducible training pipeline
-- learned shadow/finger cleanup with objective before/after test set
-- calibration profiles for problematic OEM cameras
-- Macrobenchmark / Perfetto device benchmark suite
-- page sharpness selection across a short pre-capture frame ring buffer
-
-See [DEVICE_TESTING.md](./DEVICE_TESTING.md) for the current validation matrix.
+Real-device validation is still required. See [DEVICE_TESTING.md](./DEVICE_TESTING.md).

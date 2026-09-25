@@ -1,70 +1,50 @@
 # Local Build and Installation
 
-This document is the reproducible setup for `camera-scan`.
-
-## 1. Requirements
-
-### Required
+## Requirements
 
 - Git
 - JDK 17
 - Android SDK Platform 36
-- Android SDK Build Tools 36.0.0 or newer compatible 36.x release
-- Android SDK Platform Tools if you want to use `adb`
-- internet access for the first Gradle/dependency download
+- Android SDK Build Tools 36.0.0 or compatible 36.x
+- Android SDK Platform Tools for `adb`
+- internet access for the first development build so Gradle/Maven dependencies can be downloaded
 
-You **do not** need:
+You do **not** need:
 
 - a global Gradle install
-- an OpenCV SDK checked into the repo
-- an ML Kit model downloaded manually
+- NDK/CMake
+- a separately downloaded OpenCV SDK
 - Firebase
 - `google-services.json`
 - an API key
-- NDK/CMake for this project
+- a separately downloaded OCR model
 
-The committed Gradle wrapper downloads Gradle 9.6.0.
+The repository includes the Gradle wrapper for Gradle 9.6.0.
 
-AGP 9.4.0 is configured with JDK 17 and compile/target SDK 36.
-
-## 2. Clone
-
-From the parent directory where you keep projects:
+## Clone
 
 ```bash
 git clone https://github.com/Ni-zav/camera-scan.git
 cd camera-scan
 ```
 
-The repository is private, so authenticate with your normal GitHub credential, SSH key, or GitHub CLI as appropriate.
+If the repository is private, authenticate with your normal GitHub credentials/SSH/GitHub CLI.
 
-## 3. Install Android SDK components
+## Android SDK
 
-### Android Studio
-
-Open:
-
-```text
-Tools -> SDK Manager
-```
-
-Install:
+Install in Android Studio's SDK Manager:
 
 - Android SDK Platform 36
-- Android SDK Build-Tools 36.x
-- Android SDK Platform-Tools
+- Android SDK Build Tools 36.x
+- Android SDK Platform Tools
 
-### sdkmanager alternative
-
-If Android command-line tools are already installed:
+Command-line alternative:
 
 ```bash
 sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 ```
 
-## 4. JDK
-
-Verify:
+## JDK
 
 ```bash
 java -version
@@ -72,45 +52,35 @@ java -version
 
 Use JDK 17.
 
-For Android Studio, set the Gradle JDK to JDK 17 if Studio does not select it automatically.
+Android Studio should also use JDK 17 for Gradle.
 
-## 5. Android SDK path
+## local.properties
 
-Android Studio normally creates `local.properties` automatically.
+Android Studio normally creates it automatically.
 
-If you build only from a terminal and Gradle cannot find the SDK, create:
+If Gradle cannot locate your SDK, create `local.properties` in the cloned repository root.
 
-```text
-local.properties
-```
-
-Example on Windows:
+Windows example:
 
 ```properties
 sdk.dir=C\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
 ```
 
-Example on Linux:
+Linux:
 
 ```properties
 sdk.dir=/home/YOUR_USER/Android/Sdk
 ```
 
-Example on macOS:
+macOS:
 
 ```properties
 sdk.dir=/Users/YOUR_USER/Library/Android/sdk
 ```
 
-Do not commit your machine-specific `local.properties`.
+Do not commit `local.properties`.
 
-## 6. Verify the wrapper
-
-The project pins the Gradle 9.6.0 distribution SHA-256 in:
-
-```text
-gradle/wrapper/gradle-wrapper.properties
-```
+## Verify wrapper
 
 Linux/macOS:
 
@@ -118,29 +88,29 @@ Linux/macOS:
 ./gradlew --version
 ```
 
-Windows PowerShell / CMD:
+Windows:
 
 ```powershell
 .\gradlew.bat --version
 ```
 
-Expected Gradle version:
+Expected Gradle:
 
 ```text
 9.6.0
 ```
 
-The first run downloads Gradle 9.6.0 and Maven dependencies.
+The Gradle distribution checksum is pinned in `gradle/wrapper/gradle-wrapper.properties`.
 
-## 7. Build debug APK
+## Build debug APK
 
-### Linux/macOS
+Linux/macOS:
 
 ```bash
 ./gradlew --no-daemon :app:assembleDebug
 ```
 
-### Windows
+Windows:
 
 ```powershell
 .\gradlew.bat --no-daemon :app:assembleDebug
@@ -152,7 +122,7 @@ Output:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## 8. Run lint
+## Lint
 
 Linux/macOS:
 
@@ -166,115 +136,123 @@ Windows:
 .\gradlew.bat --no-daemon :app:lintDebug
 ```
 
-Reports are under:
-
-```text
-app/build/reports/
-```
-
-## 9. Clean build
-
-Linux/macOS:
+For the same checks used by CI:
 
 ```bash
-./gradlew clean :app:assembleDebug
+./gradlew --no-daemon :app:assembleDebug :app:lintDebug
 ```
 
-Windows:
+## Android Studio
 
-```powershell
-.\gradlew.bat clean :app:assembleDebug
-```
+1. Open the cloned `camera-scan` folder.
+2. Allow Gradle sync.
+3. Confirm Gradle JDK = JDK 17.
+4. Connect a device or create an emulator.
+5. Run the `app` configuration.
 
-Use this if cached generated files appear inconsistent after dependency/toolchain changes.
+A physical phone is strongly recommended for camera/CV validation.
 
-## 10. Android Studio
-
-1. Start Android Studio.
-2. Choose **Open**.
-3. select the `camera-scan` directory, not the repository root.
-4. Allow Gradle sync.
-5. Confirm Gradle JDK is JDK 17.
-6. Connect a physical Android device or create an emulator.
-7. Choose the `app` run configuration.
-8. Click Run.
-
-A physical phone is strongly recommended for scanner testing because emulator camera input cannot faithfully reproduce focus, exposure, glare, motion blur, OEM YUV stride behavior, or paper/background contrast.
-
-## 11. Install the debug APK manually
-
-Enable Developer options and USB debugging on the device.
-
-Check the connection:
+## Install APK manually
 
 ```bash
 adb devices
-```
-
-Install/update:
-
-```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-If multiple devices are connected, use an explicit serial:
-
-```bash
-adb -s DEVICE_SERIAL install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-Package name:
+Package:
 
 ```text
 dev.nizav.documentscanner
 ```
 
-## 12. Runtime permissions and network
+## First launch behavior
 
-The application requests only:
+The app opens the **Documents** home screen.
+
+It should **not**:
+
+- launch the camera
+- request Camera permission
+- create a fake scan session
+
+Create an empty document first.
+
+From inside that document you can:
+
+- import pages without Camera permission
+- tap **Scan page** to open the camera
+
+Camera permission is requested only at that point.
+
+The manifest does not require camera hardware, so import/project/OCR use can still exist on devices without a camera.
+
+## Persistent data
+
+Room database:
 
 ```text
-android.permission.CAMERA
+camera_scan.db
 ```
 
-There is no `INTERNET` permission and no broad media/storage permission.
-
-Gallery import uses Android's Photo Picker / document-provider fallback.
-
-The bundled ML Kit Latin OCR model is packaged with the app, so OCR does not need a model download after install.
-
-## 13. Where exports go
-
-During an unfinished scan, session pages are stored under app cache and are not intended as permanent files.
-
-Permanent export copies are written to app-scoped Documents storage.
-
-On Android 10 / API 29 and newer, export also publishes:
+Processed project page files live in app-private persistent storage conceptually under:
 
 ```text
-PDF:   Downloads/PaperScanner/
-JPEG:  Pictures/PaperScanner/
+files/projects/<projectId>/pages/
 ```
 
-The share action uses a read-only temporary FileProvider URI rather than exposing a raw filesystem path.
+Temporary camera captures and Photo Picker import queues use app cache.
 
-On Android versions below API 29, the MediaStore publishing helper intentionally does not attempt the Android-10 scoped-storage path; the app-scoped export remains available to the app/share flow.
+Clearing app data/uninstalling removes the private project database and stored project pages.
 
-## 14. Debugging useful commands
+## OCR
 
-Clear the app:
+OCR uses the bundled ML Kit Latin text-recognition model.
+
+It can run:
+
+- on one page from Page Details
+- across an entire document
+- during searchable PDF export
+
+No model download or network permission is needed after installation.
+
+OCR data extraction also detects simple:
+
+- dates
+- amounts
+- email addresses
+- phone numbers
+
+These values are stored in Room with the OCR text.
+
+## Exports
+
+Permanent export copies are also written into app-scoped Documents storage.
+
+Android 10+ additionally publishes:
+
+```text
+PDF:  Downloads/CameraScan/
+JPEG: Pictures/CameraScan/
+```
+
+PDF sharing uses FileProvider.
+
+## Useful adb commands
+
+Clear app data:
 
 ```bash
 adb shell pm clear dev.nizav.documentscanner
 ```
 
-View app logs:
+Logs:
 
 ```bash
 adb logcat | grep -i "documentscanner\|ScannerApp"
 ```
 
-Windows PowerShell equivalent:
+PowerShell:
 
 ```powershell
 adb logcat | Select-String -Pattern "documentscanner|ScannerApp"
@@ -286,15 +264,29 @@ Uninstall:
 adb uninstall dev.nizav.documentscanner
 ```
 
-## 15. Common build failures
+## Release build
 
-### Android SDK location not found
+```bash
+./gradlew :app:assembleRelease
+```
 
-Create/fix `local.properties` or set `ANDROID_HOME` / Android Studio's SDK location.
+Release R8/resource shrinking is enabled.
 
-### SDK platform android-36 not installed
+The repository intentionally does not contain a private signing key. Configure signing locally or use Android Studio:
 
-Install:
+```text
+Build -> Generate Signed App Bundle / APK
+```
+
+Never commit keystore passwords or private signing keys.
+
+## Common problems
+
+### SDK not found
+
+Create/fix `local.properties` or configure the Android SDK location.
+
+### android-36 missing
 
 ```bash
 sdkmanager "platforms;android-36"
@@ -302,74 +294,38 @@ sdkmanager "platforms;android-36"
 
 ### Build Tools missing
 
-Install:
-
 ```bash
 sdkmanager "build-tools;36.0.0"
 ```
 
-### Wrong Java version
+### Wrong Java
 
-Confirm the shell and Android Studio Gradle JDK are JDK 17.
+Use JDK 17 both in the shell and Android Studio's Gradle JDK setting.
 
-### Wrapper download/checksum failure
+### OCR makes the APK larger
 
-Do not bypass the checksum casually. Confirm:
+Expected. The OCR model is bundled intentionally for immediate offline recognition.
 
-- `distributionUrl` still points to Gradle 9.6.0
-- the checked-in checksum has not been edited
-- your network/proxy is not replacing downloads
+### No camera permission at startup
 
-### OpenCV initialization failure
-
-The app uses the Maven Android AAR and `OpenCVLoader.initLocal()`.
-
-Try:
-
-```bash
-./gradlew clean :app:assembleDebug
-```
-
-then fully uninstall/reinstall the app. If a device ABI problem remains, capture `adb logcat`.
-
-### OCR increases APK size
-
-Expected. This project intentionally uses the bundled/offline Latin model so OCR works immediately without a runtime model download.
+Expected. This is the intended project-first UX.
 
 ### Camera permission denied
 
-Grant camera permission in Android Settings or clear app data and relaunch.
+Import still works. For scanning, grant Camera permission and reopen **Scan page**.
 
-### Scanner works but edges look wrong on one phone
+### Boundary overlay differs from paper on one phone
 
-Do not tune the overlay by arbitrary screen offsets. Capture the device model, Android version, preview orientation, and a screenshot. Preview/analysis geometry is already aligned through a shared CameraX `ViewPort`; an OEM-specific camera issue should be diagnosed at the image/crop-transform layer.
+Do not add arbitrary display offsets. Record the device model, Android version, orientation, screenshot, and camera logs. Preview/analysis/capture already share a CameraX ViewPort.
 
-## 16. Release build
+## Device testing
 
-A release variant exists and enables R8/resource shrinking:
+After building/installing, follow [docs/DEVICE_TESTING.md](./docs/DEVICE_TESTING.md), especially:
 
-```bash
-./gradlew :app:assembleRelease
-```
-
-The repository does **not** contain a private release signing key.
-
-For distributable release builds, configure a signing key locally or use Android Studio:
-
-```text
-Build -> Generate Signed App Bundle / APK
-```
-
-Never commit a keystore password or private signing key to this research repository.
-
-## 17. Recommended local validation before changing algorithms
-
-Run:
-
-```bash
-./gradlew :app:assembleDebug :app:lintDebug
-```
-
-Then install the APK and execute the device matrix in [docs/DEVICE_TESTING.md](./docs/DEVICE_TESTING.md).
-
-Compilation can validate API use and lifecycle warnings; it cannot validate camera geometry or scan quality.
+- project persistence
+- gallery/list switching
+- import-only flow
+- camera lifecycle
+- 8-handle curved boundary
+- OCR persistence
+- searchable PDF
