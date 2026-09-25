@@ -17,6 +17,12 @@
             android:layout_height="?attr/actionBarSize"
             app:navigationIcon="@drawable/ic_back"
             app:title="@string/document" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/projectLoading"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:indeterminate="true" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <LinearLayout
@@ -170,7 +176,8 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:padding="36dp">
+                android:padding="36dp"
+                android:visibility="gone">
 
                 <ImageView
                     android:layout_width="56dp"

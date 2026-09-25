@@ -25,6 +25,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.transition.MaterialFadeThrough;
 
@@ -67,6 +68,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
     private MaterialButton ocrButton;
     private MaterialButton exportButton;
     private ExtendedFloatingActionButton scanButton;
+    private LinearProgressIndicator projectLoading;
 
     private boolean galleryMode = true;
     private boolean dragOrderDirty;
@@ -109,6 +111,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
         ocrButton = findViewById(R.id.ocrProjectButton);
         exportButton = findViewById(R.id.exportProjectButton);
         scanButton = findViewById(R.id.scanButton);
+        projectLoading = findViewById(R.id.projectLoading);
 
         adapter = new PageAdapter(
                 thumbnails,
@@ -247,6 +250,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                             return;
                         }
                         dragOrderDirty = false;
+                        adapter.refreshPositionLabels();
 
                         List<Long> order = adapter.pageIds();
                         orderingWorker.execute(
@@ -259,6 +263,8 @@ public final class ProjectActivity extends MaterialMotionActivity {
     }
 
     private void loadProject() {
+        projectLoading.setVisibility(View.VISIBLE);
+
         worker.execute(() -> {
             ProjectEntity project = repository.getProject(projectId);
             List<PageEntity> pages = repository.listPages(projectId);
@@ -268,6 +274,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                     return;
                 }
                 if (project == null) {
+                    projectLoading.setVisibility(View.GONE);
                     finish();
                     return;
                 }
@@ -275,6 +282,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                 currentProject = project;
                 toolbar.setTitle(project.name);
                 renderPages(pages);
+                projectLoading.setVisibility(View.GONE);
             });
         });
     }
@@ -366,7 +374,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                         .setTitle(R.string.rename_document)
                         .setView(content)
                         .setNegativeButton(android.R.string.cancel, null)
-                        .setPositiveButton(R.string.save_text, null)
+                        .setPositiveButton(R.string.save_changes, null)
                         .create();
 
         dialog.setOnShowListener(ignored ->
@@ -444,6 +452,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
         }
 
         importButton.setEnabled(false);
+        projectLoading.setVisibility(View.VISIBLE);
         worker.execute(() -> {
             try {
                 int copied = ImportQueueStore.replaceWith(
@@ -453,6 +462,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                 );
                 runOnUiThread(() -> {
                     importButton.setEnabled(true);
+                    projectLoading.setVisibility(View.GONE);
                     if (copied == 0) {
                         Toast.makeText(
                                 this,
@@ -466,6 +476,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     importButton.setEnabled(true);
+                    projectLoading.setVisibility(View.GONE);
                     Toast.makeText(
                             this,
                             getString(
@@ -510,6 +521,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
         ocrButton.setEnabled(false);
         exportButton.setEnabled(false);
         ocrButton.setText(R.string.reading_text);
+        projectLoading.setVisibility(View.VISIBLE);
 
         worker.execute(() -> {
             List<PageEntity> pages = repository.listPages(projectId);
@@ -551,6 +563,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                     if (isFinishing() || isDestroyed()) {
                         return;
                     }
+                    projectLoading.setVisibility(View.GONE);
                     ocrButton.setText(R.string.extract_text);
                     ocrButton.setEnabled(true);
                     exportButton.setEnabled(true);
@@ -568,6 +581,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
         ocrButton.setEnabled(false);
         exportButton.setEnabled(false);
         exportButton.setText(R.string.exporting);
+        projectLoading.setVisibility(View.VISIBLE);
 
         worker.execute(() -> {
             try {
@@ -586,6 +600,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                     if (isFinishing() || isDestroyed()) {
                         return;
                     }
+                    projectLoading.setVisibility(View.GONE);
                     exportButton.setText(R.string.export_searchable_pdf);
                     ocrButton.setEnabled(true);
                     exportButton.setEnabled(true);

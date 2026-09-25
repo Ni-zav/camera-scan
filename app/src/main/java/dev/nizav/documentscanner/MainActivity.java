@@ -12,6 +12,8 @@ import androidx.transition.TransitionManager;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.transition.MaterialFadeThrough;
 
@@ -33,6 +35,7 @@ public final class MainActivity extends MaterialMotionActivity {
     private RecyclerView recycler;
     private View emptyState;
     private ExtendedFloatingActionButton newDocumentButton;
+    private LinearProgressIndicator homeLoading;
 
     private ProjectRepository repository;
     private ThumbnailLoader thumbnails;
@@ -47,6 +50,7 @@ public final class MainActivity extends MaterialMotionActivity {
         recycler = findViewById(R.id.projectList);
         emptyState = findViewById(R.id.emptyState);
         newDocumentButton = findViewById(R.id.newDocumentButton);
+        homeLoading = findViewById(R.id.homeLoading);
 
         repository = new ProjectRepository(this);
         thumbnails = new ThumbnailLoader();
@@ -69,23 +73,46 @@ public final class MainActivity extends MaterialMotionActivity {
     }
 
     private void loadProjects() {
+        homeLoading.setVisibility(View.VISIBLE);
+
         worker.execute(() -> {
-            List<ProjectRow> rows = repository.listProjects();
-            runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
+            try {
+                List<ProjectRow> rows = repository.listProjects();
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
 
-                TransitionManager.beginDelayedTransition(
-                        root,
-                        new MaterialFadeThrough()
-                );
-                adapter.submitList(rows);
+                    homeLoading.setVisibility(View.GONE);
+                    TransitionManager.beginDelayedTransition(
+                            root,
+                            new MaterialFadeThrough()
+                    );
+                    adapter.submitList(rows);
 
-                boolean empty = rows.isEmpty();
-                emptyState.setVisibility(empty ? View.VISIBLE : View.GONE);
-                recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
-            });
+                    boolean empty = rows.isEmpty();
+                    emptyState.setVisibility(
+                            empty ? View.VISIBLE : View.GONE
+                    );
+                    recycler.setVisibility(
+                            empty ? View.GONE : View.VISIBLE
+                    );
+                });
+            } catch (RuntimeException e) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    homeLoading.setVisibility(View.GONE);
+                    recycler.setVisibility(View.GONE);
+                    emptyState.setVisibility(View.VISIBLE);
+                    Snackbar.make(
+                            newDocumentButton,
+                            R.string.load_documents_failed,
+                            Snackbar.LENGTH_LONG
+                    ).show();
+                });
+            }
         });
     }
 

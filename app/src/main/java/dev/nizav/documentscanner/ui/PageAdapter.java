@@ -73,11 +73,11 @@ public final class PageAdapter extends RecyclerView.Adapter<PageAdapter.Holder> 
         }
 
         notifyItemMoved(from, to);
-        notifyItemRangeChanged(
-                Math.min(from, to),
-                Math.abs(from - to) + 1
-        );
         return true;
+    }
+
+    public void refreshPositionLabels() {
+        notifyItemRangeChanged(0, items.size());
     }
 
     public List<Long> pageIds() {

@@ -18,6 +18,12 @@
             android:paddingHorizontal="8dp"
             app:title="@string/documents"
             app:titleTextAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/homeLoading"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:indeterminate="true" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -37,6 +43,7 @@
         android:gravity="center"
         android:orientation="vertical"
         android:padding="40dp"
+        android:visibility="gone"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <com.google.android.material.card.MaterialCardView
