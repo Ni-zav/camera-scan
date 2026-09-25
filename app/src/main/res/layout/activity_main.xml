@@ -1,93 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/homeRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="?attr/colorSurface">
 
-    <androidx.camera.view.PreviewView
-        android:id="@+id/previewView"
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="wrap_content">
 
-    <dev.nizav.documentscanner.ui.DocumentOverlayView
-        android:id="@+id/documentOverlay"
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/homeToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:paddingHorizontal="8dp"
+            app:title="@string/documents"
+            app:titleTextAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/projectList"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="24dp"
-        android:background="#99000000"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="8dp"
-        android:text="@string/status_searching"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp" />
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"
+        android:paddingBottom="104dp"
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
-        android:gravity="end"
-        android:orientation="vertical">
-
-        <Button
-            android:id="@+id/torchButton"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:text="@string/torch"
-            android:textAllCaps="false" />
-
-        <ToggleButton
-            android:id="@+id/autoCaptureButton"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:layout_marginTop="8dp"
-            android:checked="true"
-            android:textOff="@string/auto_off"
-            android:textOn="@string/auto_on"
-            android:textAllCaps="false" />
-    </LinearLayout>
-
-    <LinearLayout
+        android:id="@+id/emptyState"
         android:layout_width="match_parent"
-        android:layout_height="72dp"
-        android:layout_gravity="bottom"
+        android:layout_height="match_parent"
         android:gravity="center"
-        android:orientation="horizontal"
-        android:paddingHorizontal="12dp"
-        android:paddingBottom="12dp">
+        android:orientation="vertical"
+        android:padding="40dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <Button
-            android:id="@+id/importButton"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:text="@string/import_images"
-            android:textAllCaps="false" />
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            app:cardBackgroundColor="?attr/colorSecondaryContainer"
+            app:cardCornerRadius="32dp"
+            app:cardElevation="0dp">
 
-        <Button
-            android:id="@+id/captureButton"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_marginHorizontal="8dp"
-            android:layout_weight="1.15"
-            android:text="@string/capture"
-            android:textAllCaps="false"
-            android:textSize="17sp" />
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_document"
+                app:tint="?attr/colorOnSecondaryContainer" />
+        </com.google.android.material.card.MaterialCardView>
 
-        <Button
-            android:id="@+id/pagesButton"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:text="@string/pages_zero"
-            android:textAllCaps="false" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="@string/no_documents"
+            android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="@string/no_documents_description"
+            android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+            android:textColor="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
 
-</FrameLayout>
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/newDocumentButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="24dp"
+        android:text="@string/new_document"
+        app:icon="@drawable/ic_add"
+        app:iconTint="?attr/colorOnPrimaryContainer"
+        app:backgroundTint="?attr/colorPrimaryContainer"
+        app:textColor="?attr/colorOnPrimaryContainer" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

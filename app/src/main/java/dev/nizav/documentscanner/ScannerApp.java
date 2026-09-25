@@ -3,6 +3,8 @@ package dev.nizav.documentscanner;
 import android.app.Application;
 import android.util.Log;
 
+import com.google.android.material.color.DynamicColors;
+
 import org.opencv.android.OpenCVLoader;
 
 public final class ScannerApp extends Application {
@@ -12,6 +14,9 @@ public final class ScannerApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        DynamicColors.applyToActivitiesIfAvailable(this);
+
         openCvReady = OpenCVLoader.initLocal();
         if (!openCvReady) {
             Log.e(TAG, "OpenCV initialization failed");

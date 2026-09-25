@@ -1,5 +1,19 @@
 <resources>
-    <string name="app_name">Paper Scanner</string>
+    <string name="app_name">Camera Scan</string>
+    <string name="documents">Documents</string>
+    <string name="document">Document</string>
+    <string name="new_document">New document</string>
+    <string name="new_document_hint">Create an empty document first. You can scan or import pages inside it.</string>
+    <string name="create_document">Create</string>
+    <string name="document_name">Document name</string>
+    <string name="no_documents">No documents yet</string>
+    <string name="no_documents_description">Create a document to start scanning, importing, and extracting text.</string>
+    <string name="back">Back</string>
+    <plurals name="page_count">
+        <item quantity="one">%d page</item>
+        <item quantity="other">%d pages</item>
+    </plurals>
+
     <string name="camera_permission_required">Camera permission is required to scan documents.</string>
     <string name="capture">Capture</string>
     <string name="torch">Torch</string>
