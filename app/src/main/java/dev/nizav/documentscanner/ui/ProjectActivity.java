@@ -12,8 +12,10 @@ import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.transition.TransitionManager;
@@ -21,7 +23,9 @@ import androidx.transition.TransitionManager;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.transition.MaterialFadeThrough;
 
 import dev.nizav.documentscanner.R;
@@ -43,11 +47,14 @@ public final class ProjectActivity extends MaterialMotionActivity {
     public static final String EXTRA_PROJECT_ID = "project_id";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService orderingWorker =
+            Executors.newSingleThreadExecutor();
 
     private long projectId;
     private ProjectRepository repository;
     private ThumbnailLoader thumbnails;
     private PageAdapter adapter;
+    private ProjectEntity currentProject;
 
     private ViewGroup root;
     private MaterialToolbar toolbar;
@@ -55,14 +62,14 @@ public final class ProjectActivity extends MaterialMotionActivity {
     private View emptyState;
     private TextView indexStatus;
     private TextView indexPreview;
-    private MaterialButton galleryButton;
-    private MaterialButton listButton;
+    private TextView reorderHint;
     private MaterialButton importButton;
     private MaterialButton ocrButton;
     private MaterialButton exportButton;
     private ExtendedFloatingActionButton scanButton;
 
     private boolean galleryMode = true;
+    private boolean dragOrderDirty;
     private File activeImport;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> galleryLauncher =
@@ -97,8 +104,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
         emptyState = findViewById(R.id.pageEmptyState);
         indexStatus = findViewById(R.id.indexStatus);
         indexPreview = findViewById(R.id.indexPreview);
-        galleryButton = findViewById(R.id.galleryButton);
-        listButton = findViewById(R.id.listButton);
+        reorderHint = findViewById(R.id.pageReorderHint);
         importButton = findViewById(R.id.importButton);
         ocrButton = findViewById(R.id.ocrProjectButton);
         exportButton = findViewById(R.id.exportProjectButton);
@@ -112,6 +118,18 @@ public final class ProjectActivity extends MaterialMotionActivity {
         recycler.setLayoutManager(new GridLayoutManager(this, 2));
 
         toolbar.setNavigationOnClickListener(v -> finish());
+        toolbar.inflateMenu(R.menu.project_actions);
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.actionRenameProject) {
+                showRenameDialog();
+                return true;
+            }
+            if (item.getItemId() == R.id.actionDeleteProject) {
+                confirmDeleteProject();
+                return true;
+            }
+            return false;
+        });
 
         MaterialButtonToggleGroup viewToggle =
                 findViewById(R.id.pageViewToggle);
@@ -122,6 +140,8 @@ public final class ProjectActivity extends MaterialMotionActivity {
                     switchPageMode(checkedId == R.id.galleryButton);
                 }
         );
+
+        attachPageReordering();
 
         scanButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, ScanActivity.class);
@@ -136,7 +156,6 @@ public final class ProjectActivity extends MaterialMotionActivity {
         ocrButton.setOnClickListener(v -> indexProjectText());
         exportButton.setOnClickListener(v -> exportProject());
 
-        loadProject();
         launchNextImportIfNeeded();
     }
 
@@ -146,6 +165,97 @@ public final class ProjectActivity extends MaterialMotionActivity {
         if (repository != null) {
             loadProject();
         }
+    }
+
+    private void attachPageReordering() {
+        ItemTouchHelper.SimpleCallback callback =
+                new ItemTouchHelper.SimpleCallback(
+                        ItemTouchHelper.UP
+                                | ItemTouchHelper.DOWN
+                                | ItemTouchHelper.LEFT
+                                | ItemTouchHelper.RIGHT,
+                        0
+                ) {
+                    @Override
+                    public int getMovementFlags(
+                            @NonNull RecyclerView recyclerView,
+                            @NonNull RecyclerView.ViewHolder viewHolder
+                    ) {
+                        int dragFlags = galleryMode
+                                ? ItemTouchHelper.UP
+                                    | ItemTouchHelper.DOWN
+                                    | ItemTouchHelper.LEFT
+                                    | ItemTouchHelper.RIGHT
+                                : ItemTouchHelper.UP
+                                    | ItemTouchHelper.DOWN;
+                        return makeMovementFlags(dragFlags, 0);
+                    }
+
+                    @Override
+                    public boolean onMove(
+                            @NonNull RecyclerView recyclerView,
+                            @NonNull RecyclerView.ViewHolder source,
+                            @NonNull RecyclerView.ViewHolder target
+                    ) {
+                        int from = source.getBindingAdapterPosition();
+                        int to = target.getBindingAdapterPosition();
+                        boolean moved = adapter.moveItem(from, to);
+                        dragOrderDirty |= moved;
+                        return moved;
+                    }
+
+                    @Override
+                    public void onSwiped(
+                            @NonNull RecyclerView.ViewHolder viewHolder,
+                            int direction
+                    ) {
+                        // No swipe action. Destructive page removal stays
+                        // explicit in Page Details.
+                    }
+
+                    @Override
+                    public void onSelectedChanged(
+                            RecyclerView.ViewHolder viewHolder,
+                            int actionState
+                    ) {
+                        super.onSelectedChanged(viewHolder, actionState);
+                        if (viewHolder != null
+                                && actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                            viewHolder.itemView.animate()
+                                    .scaleX(1.025f)
+                                    .scaleY(1.025f)
+                                    .alpha(0.92f)
+                                    .setDuration(120L)
+                                    .start();
+                        }
+                    }
+
+                    @Override
+                    public void clearView(
+                            @NonNull RecyclerView recyclerView,
+                            @NonNull RecyclerView.ViewHolder viewHolder
+                    ) {
+                        super.clearView(recyclerView, viewHolder);
+                        viewHolder.itemView.animate()
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .alpha(1f)
+                                .setDuration(120L)
+                                .start();
+
+                        if (!dragOrderDirty) {
+                            return;
+                        }
+                        dragOrderDirty = false;
+
+                        List<Long> order = adapter.pageIds();
+                        orderingWorker.execute(
+                                () -> repository.setPageOrder(projectId, order)
+                        );
+                    }
+                };
+
+        new ItemTouchHelper(callback).attachToRecyclerView(recycler);
     }
 
     private void loadProject() {
@@ -162,6 +272,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                     return;
                 }
 
+                currentProject = project;
                 toolbar.setTitle(project.name);
                 renderPages(pages);
             });
@@ -178,6 +289,9 @@ public final class ProjectActivity extends MaterialMotionActivity {
         boolean empty = pages.isEmpty();
         emptyState.setVisibility(empty ? View.VISIBLE : View.GONE);
         recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
+        reorderHint.setVisibility(
+                pages.size() > 1 ? View.VISIBLE : View.GONE
+        );
         ocrButton.setEnabled(!empty);
         exportButton.setEnabled(!empty);
 
@@ -232,6 +346,80 @@ public final class ProjectActivity extends MaterialMotionActivity {
         );
     }
 
+    private void showRenameDialog() {
+        ProjectEntity project = currentProject;
+        if (project == null) {
+            return;
+        }
+
+        View content = getLayoutInflater().inflate(
+                R.layout.dialog_new_project,
+                null,
+                false
+        );
+        TextInputEditText input = content.findViewById(R.id.projectNameInput);
+        input.setText(project.name);
+        input.selectAll();
+
+        androidx.appcompat.app.AlertDialog dialog =
+                new MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.rename_document)
+                        .setView(content)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(R.string.save_text, null)
+                        .create();
+
+        dialog.setOnShowListener(ignored ->
+                dialog.getButton(
+                        androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE
+                ).setOnClickListener(v -> {
+                    String name = input.getText() == null
+                            ? null
+                            : input.getText().toString();
+
+                    dialog.getButton(
+                            androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE
+                    ).setEnabled(false);
+
+                    worker.execute(() -> {
+                        repository.renameProject(projectId, name);
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed()) {
+                                dialog.dismiss();
+                                loadProject();
+                            }
+                        });
+                    });
+                })
+        );
+        dialog.show();
+    }
+
+    private void confirmDeleteProject() {
+        ProjectEntity project = currentProject;
+        if (project == null) {
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.delete_document)
+                .setMessage(
+                        getString(
+                                R.string.delete_document_warning,
+                                project.name
+                        )
+                )
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.delete_document, (dialog, which) ->
+                        worker.execute(() -> {
+                            ImportQueueStore.clear(this, projectId);
+                            repository.deleteProject(projectId);
+                            runOnUiThread(this::finish);
+                        })
+                )
+                .show();
+    }
+
     private void openPage(long pageId) {
         Intent intent = new Intent(this, PageDetailActivity.class);
         intent.putExtra(PageDetailActivity.EXTRA_PAGE_ID, pageId);
@@ -258,7 +446,11 @@ public final class ProjectActivity extends MaterialMotionActivity {
         importButton.setEnabled(false);
         worker.execute(() -> {
             try {
-                int copied = ImportQueueStore.replaceWith(this, projectId, uris);
+                int copied = ImportQueueStore.replaceWith(
+                        this,
+                        projectId,
+                        uris
+                );
                 runOnUiThread(() -> {
                     importButton.setEnabled(true);
                     if (copied == 0) {
@@ -276,7 +468,10 @@ public final class ProjectActivity extends MaterialMotionActivity {
                     importButton.setEnabled(true);
                     Toast.makeText(
                             this,
-                            getString(R.string.import_failed_detail, e.getMessage()),
+                            getString(
+                                    R.string.import_failed_detail,
+                                    e.getMessage()
+                            ),
                             Toast.LENGTH_LONG
                     ).show();
                 });
@@ -332,21 +527,30 @@ public final class ProjectActivity extends MaterialMotionActivity {
                     );
                     completed++;
                     int done = completed;
-                    runOnUiThread(() -> indexStatus.setText(
-                            getString(
-                                    R.string.ocr_index_progress,
-                                    done,
-                                    pages.size()
-                            )
-                    ));
+                    runOnUiThread(() -> {
+                        if (!isFinishing() && !isDestroyed()) {
+                            indexStatus.setText(
+                                    getString(
+                                            R.string.ocr_index_progress,
+                                            done,
+                                            pages.size()
+                                    )
+                            );
+                        }
+                    });
                 }
 
                 runOnUiThread(() -> {
-                    ocrButton.setText(R.string.extract_text);
-                    loadProject();
+                    if (!isFinishing() && !isDestroyed()) {
+                        ocrButton.setText(R.string.extract_text);
+                        loadProject();
+                    }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
                     ocrButton.setText(R.string.extract_text);
                     ocrButton.setEnabled(true);
                     exportButton.setEnabled(true);
@@ -370,12 +574,18 @@ public final class ProjectActivity extends MaterialMotionActivity {
                 ProjectExporter.ExportResult result =
                         ProjectExporter.export(this, projectId, true);
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
                     exportButton.setText(R.string.export_searchable_pdf);
                     loadProject();
                     ShareUtils.sharePdf(this, result.pdf);
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
                     exportButton.setText(R.string.export_searchable_pdf);
                     ocrButton.setEnabled(true);
                     exportButton.setEnabled(true);
@@ -393,6 +603,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
     protected void onDestroy() {
         thumbnails.close();
         worker.shutdownNow();
+        orderingWorker.shutdown();
         super.onDestroy();
     }
 }
