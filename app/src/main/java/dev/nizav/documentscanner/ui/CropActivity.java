@@ -12,7 +12,6 @@ import android.view.ViewGroup;
 import androidx.transition.TransitionManager;
 
 import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.color.MaterialColors;
 import com.google.android.material.transition.MaterialFadeThrough;
 
 import dev.nizav.documentscanner.R;
@@ -267,14 +266,7 @@ public final class CropActivity extends MaterialMotionActivity {
 
     private void setEditorHint(int textRes, boolean error) {
         editorHint.setText(textRes);
-        editorHint.setTextColor(
-                MaterialColors.getColor(
-                        editorHint,
-                        error
-                                ? com.google.android.material.R.attr.colorError
-                                : com.google.android.material.R.attr.colorOnSurfaceVariant
-                )
-        );
+        editorHint.setAlpha(error ? 1f : 0.82f);
     }
 
     private void applyFilter(ImageEnhancer.Filter filter) {
