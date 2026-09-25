@@ -1,6 +1,6 @@
 # Local Build and Installation
 
-This document is the reproducible setup for `document-scanner-android`.
+This document is the reproducible setup for `camera-scan`.
 
 ## 1. Requirements
 
@@ -32,8 +32,8 @@ AGP 9.4.0 is configured with JDK 17 and compile/target SDK 36.
 From the parent directory where you keep projects:
 
 ```bash
-git clone https://github.com/Ni-zav/research.git
-cd research/document-scanner-android
+git clone https://github.com/Ni-zav/camera-scan.git
+cd camera-scan
 ```
 
 The repository is private, so authenticate with your normal GitHub credential, SSH key, or GitHub CLI as appropriate.
