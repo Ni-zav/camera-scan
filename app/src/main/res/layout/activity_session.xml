@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#111111"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/sessionTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingVertical="8dp"
+        android:text="@string/session_pages"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <ListView
+        android:id="@+id/pageList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:choiceMode="singleChoice"
+        android:divider="#333333"
+        android:dividerHeight="1dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/moveUpButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="@string/move_up"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/moveDownButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginHorizontal="6dp"
+            android:layout_weight="1"
+            android:text="@string/move_down"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/deletePageButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="@string/delete_page"
+            android:textAllCaps="false" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/newSessionButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="@string/new_session"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/backToScanButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginHorizontal="6dp"
+            android:layout_weight="1"
+            android:text="@string/back_to_scan"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/exportSessionButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="@string/export_searchable_pdf"
+            android:textAllCaps="false" />
+    </LinearLayout>
+
+</LinearLayout>

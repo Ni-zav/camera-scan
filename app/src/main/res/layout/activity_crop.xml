@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:orientation="vertical">
+
+    <dev.nizav.documentscanner.ui.DocumentCropView
+        android:id="@+id/cropView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <HorizontalScrollView
+        android:id="@+id/filterBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="false"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <Button
+                android:id="@+id/filterOriginal"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="@string/filter_original"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/filterColor"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/filter_color"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/filterCleanPaper"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/filter_clean_paper"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/filterGray"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/filter_gray"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/filterBw"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/filter_bw"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/filterFinger"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/filter_finger"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/dewarpButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/dewarp"
+                android:textAllCaps="false" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp">
+
+        <Button
+            android:id="@+id/retakeButton"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:text="@string/retake"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/flattenButton"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="8dp"
+            android:layout_weight="1"
+            android:text="@string/flatten"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/saveButton"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:enabled="false"
+            android:text="@string/save"
+            android:textAllCaps="false" />
+
+    </LinearLayout>
+
+</LinearLayout>

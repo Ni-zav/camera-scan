@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <dev.nizav.documentscanner.ui.DocumentOverlayView
+        android:id="@+id/documentOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="24dp"
+        android:background="#99000000"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="8dp"
+        android:text="@string/status_searching"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/torchButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="@string/torch"
+            android:textAllCaps="false" />
+
+        <ToggleButton
+            android:id="@+id/autoCaptureButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:checked="true"
+            android:textOff="@string/auto_off"
+            android:textOn="@string/auto_on"
+            android:textAllCaps="false" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingBottom="12dp">
+
+        <Button
+            android:id="@+id/importButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="@string/import_images"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/captureButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="8dp"
+            android:layout_weight="1.15"
+            android:text="@string/capture"
+            android:textAllCaps="false"
+            android:textSize="17sp" />
+
+        <Button
+            android:id="@+id/pagesButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="@string/pages_zero"
+            android:textAllCaps="false" />
+    </LinearLayout>
+
+</FrameLayout>
