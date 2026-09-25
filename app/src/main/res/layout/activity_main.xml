@@ -82,6 +82,6 @@
         app:icon="@drawable/ic_add"
         app:iconTint="?attr/colorOnPrimaryContainer"
         app:backgroundTint="?attr/colorPrimaryContainer"
-        app:textColor="?attr/colorOnPrimaryContainer" />
+        android:textColor="?attr/colorOnPrimaryContainer" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

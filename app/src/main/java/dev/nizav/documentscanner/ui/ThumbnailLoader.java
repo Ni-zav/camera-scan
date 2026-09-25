@@ -39,6 +39,7 @@ public final class ThumbnailLoader implements AutoCloseable {
         view.setTag(path);
         Bitmap cached = path == null ? null : cache.get(path);
         if (cached != null && !cached.isRecycled()) {
+            view.setImageTintList(null);
             view.setImageBitmap(cached);
             return;
         }
@@ -57,6 +58,7 @@ public final class ThumbnailLoader implements AutoCloseable {
             main.post(() -> {
                 Object tag = view.getTag();
                 if (path.equals(tag)) {
+                    view.setImageTintList(null);
                     view.setImageBitmap(bitmap);
                 }
             });

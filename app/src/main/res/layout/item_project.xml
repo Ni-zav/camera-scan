@@ -37,8 +37,7 @@
                 android:contentDescription="@null"
                 android:padding="18dp"
                 android:scaleType="centerCrop"
-                android:src="@drawable/ic_document"
-                app:tint="?attr/colorOnSecondaryContainer" />
+                android:src="@drawable/ic_document" />
         </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
