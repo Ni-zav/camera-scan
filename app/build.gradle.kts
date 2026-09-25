@@ -38,7 +38,7 @@ android {
 dependencies {
     implementation("androidx.activity:activity:1.13.0")
     implementation("androidx.appcompat:appcompat:1.8.0")
-    implementation("androidx.core:core:1.19.1")
+    implementation("androidx.core:core:1.18.0")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.transition:transition:1.7.2")
