@@ -6,8 +6,13 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
+import android.widget.TextView;
+import android.view.ViewGroup;
 
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.transition.TransitionManager;
+
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.transition.MaterialFadeThrough;
 
 import dev.nizav.documentscanner.R;
 import dev.nizav.documentscanner.ScannerApp;
@@ -24,7 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class CropActivity extends AppCompatActivity {
+public final class CropActivity extends MaterialMotionActivity {
     public static final String EXTRA_IMAGE_PATH = "image_path";
     public static final String EXTRA_PROJECT_ID = "project_id";
     private static final int MAX_DECODE_EDGE = 3072;
@@ -35,6 +40,8 @@ public final class CropActivity extends AppCompatActivity {
     private long projectId;
     private ProjectRepository repository;
 
+    private ViewGroup editorRoot;
+    private TextView editorHint;
     private DocumentCropView cropView;
     private View filterBar;
     private Button flattenButton;
@@ -60,7 +67,15 @@ public final class CropActivity extends AppCompatActivity {
         }
         repository = new ProjectRepository(this);
 
+        editorRoot = findViewById(R.id.editorRoot);
+        editorHint = findViewById(R.id.editorHint);
         cropView = findViewById(R.id.cropView);
+
+        MaterialToolbar toolbar = findViewById(R.id.cropToolbar);
+        toolbar.setNavigationOnClickListener(v -> {
+            setResult(Activity.RESULT_CANCELED);
+            finish();
+        });
         filterBar = findViewById(R.id.filterBar);
         flattenButton = findViewById(R.id.flattenButton);
         saveButton = findViewById(R.id.saveButton);
@@ -184,7 +199,12 @@ public final class CropActivity extends AppCompatActivity {
                 flattened = true;
                 transformBusy = false;
 
+                TransitionManager.beginDelayedTransition(
+                        editorRoot,
+                        new MaterialFadeThrough()
+                );
                 cropView.setDocument(warped, null, false);
+                editorHint.setText(R.string.filter_hint);
                 filterBar.setVisibility(View.VISIBLE);
                 flattenButton.setText(R.string.adjust);
                 flattenButton.setEnabled(true);
@@ -203,7 +223,12 @@ public final class CropActivity extends AppCompatActivity {
 
         displayedBitmap = sourceBitmap;
         flattened = false;
+        TransitionManager.beginDelayedTransition(
+                editorRoot,
+                new MaterialFadeThrough()
+        );
         cropView.setDocument(sourceBitmap, cropBoundary, true);
+        editorHint.setText(R.string.curved_crop_hint);
         filterBar.setVisibility(View.GONE);
         flattenButton.setText(R.string.flatten);
         saveButton.setEnabled(false);

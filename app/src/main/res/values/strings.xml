@@ -81,4 +81,8 @@
     <string name="status_processing">Processing…</string>
 
     <string name="delete_page">Delete page</string>
+    <string name="adjust_page">Adjust page</string>
+    <string name="curved_crop_hint">Drag the 4 corners and 4 side handles so the outline follows the real paper edge, including bowed or curved sides.</string>
+    <string name="filter_hint">Flattened preview. Apply a cleanup filter, optional dewarp, or adjust the boundary again.</string>
+    <string name="cancel">Cancel</string>
 </resources>
