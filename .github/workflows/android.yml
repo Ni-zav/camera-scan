@@ -10,7 +10,7 @@ on:
       - "gradle.properties"
       - "gradlew"
       - "gradlew.bat"
-      - ".github/workflows/document-scanner-android.yml"
+      - ".github/workflows/android.yml"
   pull_request:
     paths:
       - "app/**"
@@ -20,7 +20,7 @@ on:
       - "gradle.properties"
       - "gradlew"
       - "gradlew.bat"
-      - ".github/workflows/document-scanner-android.yml"
+      - ".github/workflows/android.yml"
 
 jobs:
   build:
