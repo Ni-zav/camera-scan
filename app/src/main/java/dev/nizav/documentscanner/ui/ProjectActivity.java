@@ -29,6 +29,10 @@ import dev.nizav.documentscanner.data.ImportQueueStore;
 import dev.nizav.documentscanner.data.ProjectRepository;
 import dev.nizav.documentscanner.data.db.PageEntity;
 import dev.nizav.documentscanner.data.db.ProjectEntity;
+import dev.nizav.documentscanner.export.ProjectExporter;
+import dev.nizav.documentscanner.export.ShareUtils;
+import dev.nizav.documentscanner.ocr.OcrEngine;
+import dev.nizav.documentscanner.ocr.OcrPipeline;
 
 import java.io.File;
 import java.util.List;
@@ -127,10 +131,10 @@ public final class ProjectActivity extends MaterialMotionActivity {
 
         importButton.setOnClickListener(v -> launchGallery());
 
-        // Wired to full behavior by OCR/export layer; intentionally disabled
-        // until project/page state has loaded.
         ocrButton.setEnabled(false);
         exportButton.setEnabled(false);
+        ocrButton.setOnClickListener(v -> indexProjectText());
+        exportButton.setOnClickListener(v -> exportProject());
 
         loadProject();
         launchNextImportIfNeeded();
@@ -305,6 +309,84 @@ public final class ProjectActivity extends MaterialMotionActivity {
         }
         loadProject();
         launchNextImportIfNeeded();
+    }
+
+    private void indexProjectText() {
+        ocrButton.setEnabled(false);
+        exportButton.setEnabled(false);
+        ocrButton.setText(R.string.reading_text);
+
+        worker.execute(() -> {
+            List<PageEntity> pages = repository.listPages(projectId);
+            try (OcrEngine engine = new OcrEngine()) {
+                int completed = 0;
+                for (PageEntity page : pages) {
+                    OcrPipeline.Result result = OcrPipeline.recognizeFile(
+                            new File(page.filePath),
+                            engine
+                    );
+                    repository.updateOcr(
+                            page.id,
+                            result.text,
+                            result.dataJson
+                    );
+                    completed++;
+                    int done = completed;
+                    runOnUiThread(() -> indexStatus.setText(
+                            getString(
+                                    R.string.ocr_index_progress,
+                                    done,
+                                    pages.size()
+                            )
+                    ));
+                }
+
+                runOnUiThread(() -> {
+                    ocrButton.setText(R.string.extract_text);
+                    loadProject();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    ocrButton.setText(R.string.extract_text);
+                    ocrButton.setEnabled(true);
+                    exportButton.setEnabled(true);
+                    Toast.makeText(
+                            this,
+                            getString(R.string.ocr_failed, e.getMessage()),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+            }
+        });
+    }
+
+    private void exportProject() {
+        ocrButton.setEnabled(false);
+        exportButton.setEnabled(false);
+        exportButton.setText(R.string.exporting);
+
+        worker.execute(() -> {
+            try {
+                ProjectExporter.ExportResult result =
+                        ProjectExporter.export(this, projectId, true);
+                runOnUiThread(() -> {
+                    exportButton.setText(R.string.export_searchable_pdf);
+                    loadProject();
+                    ShareUtils.sharePdf(this, result.pdf);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    exportButton.setText(R.string.export_searchable_pdf);
+                    ocrButton.setEnabled(true);
+                    exportButton.setEnabled(true);
+                    Toast.makeText(
+                            this,
+                            getString(R.string.export_failed, e.getMessage()),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+            }
+        });
     }
 
     @Override

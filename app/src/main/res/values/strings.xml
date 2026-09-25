@@ -14,26 +14,50 @@
         <item quantity="other">%d pages</item>
     </plurals>
 
-    <string name="camera_permission_required">Camera permission is required to scan documents.</string>
+    <string name="document_text">Document text</string>
+    <string name="extract_text">Extract text</string>
+    <string name="reading_text">Reading text…</string>
+    <string name="extracted_text">Extracted text</string>
+    <string name="save_text">Save text</string>
+    <string name="ocr_index_status">%1$d of %2$d pages indexed</string>
+    <string name="ocr_index_progress">Reading page %1$d of %2$d…</string>
+    <string name="ocr_index_empty">OCR text will appear here after extraction.</string>
+    <string name="ocr_failed">Text extraction failed: %1$s</string>
+    <string name="text_ready">Text ready</string>
+    <string name="text_not_indexed">Text not indexed</string>
+    <string name="detected_data">Detected data</string>
+    <string name="no_detected_data">No dates, amounts, email addresses, or phone numbers detected yet.</string>
+    <string name="detected_dates">Dates</string>
+    <string name="detected_amounts">Amounts</string>
+    <string name="detected_emails">Email addresses</string>
+    <string name="detected_phones">Phone numbers</string>
+
+    <string name="gallery">Gallery</string>
+    <string name="list">List</string>
+    <string name="no_pages">No pages yet</string>
+    <string name="no_pages_description">Scan with the camera or import existing photos into this document.</string>
+    <string name="scan_page">Scan page</string>
+    <string name="page_number">Page %1$d</string>
+    <string name="page_detail">Page details</string>
+    <string name="page_added">Page added to document</string>
+    <string name="delete_page_warning">Remove this page from the document? The stored page image will be deleted.</string>
+
+    <string name="camera_permission_required">Camera permission is required only when scanning a page.</string>
     <string name="capture">Capture</string>
     <string name="torch">Torch</string>
+    <string name="torch_on">Torch on</string>
     <string name="auto_on">Auto on</string>
     <string name="auto_off">Auto off</string>
     <string name="import_images">Import</string>
-    <string name="pages_zero">Pages 0</string>
-    <string name="pages_count">Pages %1$d</string>
-    <string name="session_pages">Scan pages</string>
-    <string name="move_up">Up</string>
-    <string name="move_down">Down</string>
-    <string name="delete_page">Delete</string>
-    <string name="new_session">New</string>
-    <string name="new_session_warning">Clear all pages in the current scan session?</string>
-    <string name="clear_pages">Clear pages</string>
-    <string name="back_to_scan">Add more</string>
+    <string name="import_failed">No selected image could be imported.</string>
+    <string name="import_failed_detail">Import failed: %1$s</string>
+
     <string name="export_searchable_pdf">Export PDF</string>
     <string name="exporting">OCR + PDF…</string>
+    <string name="export_failed">Export failed: %1$s</string>
     <string name="share_pdf">Share scanned PDF</string>
     <string name="exported_to">Exported to %1$s</string>
+
     <string name="retake">Retake</string>
     <string name="flatten">Flatten</string>
     <string name="adjust">Adjust crop</string>
@@ -47,6 +71,7 @@
     <string name="dewarp">Dewarp</string>
     <string name="dewarp_applied">Curvature correction applied.</string>
     <string name="dewarp_not_needed">No reliable page curve detected.</string>
+
     <string name="status_searching">Looking for paper</string>
     <string name="status_found">Paper found</string>
     <string name="status_stable">Hold steady</string>
@@ -54,6 +79,6 @@
     <string name="status_bright">Too bright</string>
     <string name="status_blurry">Hold still / focus</string>
     <string name="status_processing">Processing…</string>
-    <string name="status_importing">Preparing imported images…</string>
-    <string name="import_failed">No selected image could be imported.</string>
+
+    <string name="delete_page">Delete page</string>
 </resources>

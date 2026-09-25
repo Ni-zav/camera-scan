@@ -26,7 +26,17 @@
         </provider>
 
         <activity
-            android:name=".ui.SessionActivity"
+            android:name=".ui.PageDetailActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.ScanActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.ProjectActivity"
             android:screenOrientation="portrait"
             android:exported="false" />
 
