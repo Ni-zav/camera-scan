@@ -19,11 +19,12 @@ public final class ImportQueueStore {
 
     public static synchronized int replaceWith(
             Context context,
+            long projectId,
             List<Uri> uris
     ) throws IOException {
-        clear(context);
+        clear(context, projectId);
 
-        File root = root(context);
+        File root = root(context, projectId);
         if (!root.exists() && !root.mkdirs()) {
             throw new IOException("Unable to create import queue");
         }
@@ -63,8 +64,11 @@ public final class ImportQueueStore {
         return written;
     }
 
-    public static synchronized File peek(Context context) {
-        File[] files = root(context).listFiles(File::isFile);
+    public static synchronized File peek(
+            Context context,
+            long projectId
+    ) {
+        File[] files = root(context, projectId).listFiles(File::isFile);
         if (files == null || files.length == 0) {
             return null;
         }
@@ -72,8 +76,11 @@ public final class ImportQueueStore {
         return files[0];
     }
 
-    public static synchronized int count(Context context) {
-        File[] files = root(context).listFiles(File::isFile);
+    public static synchronized int count(
+            Context context,
+            long projectId
+    ) {
+        File[] files = root(context, projectId).listFiles(File::isFile);
         return files == null ? 0 : files.length;
     }
 
@@ -83,8 +90,11 @@ public final class ImportQueueStore {
         }
     }
 
-    public static synchronized void clear(Context context) {
-        File root = root(context);
+    public static synchronized void clear(
+            Context context,
+            long projectId
+    ) {
+        File root = root(context, projectId);
         File[] files = root.listFiles();
         if (files != null) {
             for (File file : files) {
@@ -94,7 +104,10 @@ public final class ImportQueueStore {
         root.delete();
     }
 
-    private static File root(Context context) {
-        return new File(context.getCacheDir(), DIR);
+    private static File root(Context context, long projectId) {
+        return new File(
+                new File(context.getCacheDir(), DIR),
+                "project_" + projectId
+        );
     }
 }

@@ -258,7 +258,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
         importButton.setEnabled(false);
         worker.execute(() -> {
             try {
-                int copied = ImportQueueStore.replaceWith(this, uris);
+                int copied = ImportQueueStore.replaceWith(this, projectId, uris);
                 runOnUiThread(() -> {
                     importButton.setEnabled(true);
                     if (copied == 0) {
@@ -289,7 +289,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
             return;
         }
 
-        File next = ImportQueueStore.peek(this);
+        File next = ImportQueueStore.peek(this, projectId);
         if (next == null) {
             return;
         }

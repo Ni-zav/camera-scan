@@ -27,7 +27,7 @@ public final class MediaStorePublisher {
                 source,
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
                 "application/pdf",
-                Environment.DIRECTORY_DOWNLOADS + "/PaperScanner"
+                Environment.DIRECTORY_DOWNLOADS + "/CameraScan"
         );
     }
 
@@ -41,7 +41,7 @@ public final class MediaStorePublisher {
                 source,
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 "image/jpeg",
-                Environment.DIRECTORY_PICTURES + "/PaperScanner"
+                Environment.DIRECTORY_PICTURES + "/CameraScan"
         );
     }
 
