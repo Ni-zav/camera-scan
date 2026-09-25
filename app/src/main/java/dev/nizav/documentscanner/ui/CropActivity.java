@@ -16,7 +16,7 @@ import dev.nizav.documentscanner.cv.CurvedBoundaryCorrector;
 import dev.nizav.documentscanner.cv.ImageEnhancer;
 import dev.nizav.documentscanner.cv.PageDewarper;
 import dev.nizav.documentscanner.cv.Quad;
-import dev.nizav.documentscanner.data.ScanSessionStore;
+import dev.nizav.documentscanner.data.ProjectRepository;
 import dev.nizav.documentscanner.util.BitmapUtils;
 
 import java.io.File;
@@ -26,10 +26,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class CropActivity extends AppCompatActivity {
     public static final String EXTRA_IMAGE_PATH = "image_path";
+    public static final String EXTRA_PROJECT_ID = "project_id";
     private static final int MAX_DECODE_EDGE = 3072;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicInteger renderGeneration = new AtomicInteger();
+
+    private long projectId;
+    private ProjectRepository repository;
 
     private DocumentCropView cropView;
     private View filterBar;
@@ -48,6 +52,13 @@ public final class CropActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_crop);
+
+        projectId = getIntent().getLongExtra(EXTRA_PROJECT_ID, -1L);
+        if (projectId <= 0L) {
+            finish();
+            return;
+        }
+        repository = new ProjectRepository(this);
 
         cropView = findViewById(R.id.cropView);
         filterBar = findViewById(R.id.filterBar);
@@ -311,7 +322,7 @@ public final class CropActivity extends AppCompatActivity {
 
         worker.execute(() -> {
             try {
-                ScanSessionStore.addPage(this, bitmap);
+                repository.addPage(projectId, bitmap);
                 runOnUiThread(() -> {
                     setResult(Activity.RESULT_OK);
                     finish();
