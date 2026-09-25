@@ -13,11 +13,105 @@ public final class CurvedBoundaryCorrector {
     private static final int MAX_OUTPUT_EDGE = 4096;
     private static final int MAP_BAND_HEIGHT = 128;
     private static final int ARC_SAMPLES = 24;
+    private static final int VALIDATION_STEPS = 8;
+    private static final double MIN_NORMALIZED_AREA = 0.02;
+    private static final double MIN_LOCAL_JACOBIAN = 0.00001;
+    private static final double MAX_SURFACE_OVERSHOOT = 0.06;
 
     private CurvedBoundaryCorrector() {
     }
 
+    public static boolean isValid(Boundary8 boundary) {
+        Point tl = boundary.get(Boundary8.TL);
+        Point tr = boundary.get(Boundary8.TR);
+        Point br = boundary.get(Boundary8.BR);
+        Point bl = boundary.get(Boundary8.BL);
+
+        double signedArea =
+                0.5 * (
+                        tl.x * tr.y - tl.y * tr.x
+                        + tr.x * br.y - tr.y * br.x
+                        + br.x * bl.y - br.y * bl.x
+                        + bl.x * tl.y - bl.y * tl.x
+                );
+
+        if (Math.abs(signedArea) < MIN_NORMALIZED_AREA) {
+            return false;
+        }
+
+        if (edgeLength(
+                boundary,
+                Boundary8.TL,
+                Boundary8.TM,
+                Boundary8.TR
+        ) < 0.08
+                || edgeLength(
+                        boundary,
+                        Boundary8.TR,
+                        Boundary8.RM,
+                        Boundary8.BR
+                ) < 0.08
+                || edgeLength(
+                        boundary,
+                        Boundary8.BL,
+                        Boundary8.BM,
+                        Boundary8.BR
+                ) < 0.08
+                || edgeLength(
+                        boundary,
+                        Boundary8.TL,
+                        Boundary8.LM,
+                        Boundary8.BL
+                ) < 0.08) {
+            return false;
+        }
+
+        double expectedSign = Math.signum(signedArea);
+        double step = 1.0 / VALIDATION_STEPS;
+
+        for (int y = 0; y <= VALIDATION_STEPS; y++) {
+            double v = y * step;
+            for (int x = 0; x <= VALIDATION_STEPS; x++) {
+                double u = x * step;
+                Point point = surfacePoint(boundary, u, v);
+                if (point.x < -MAX_SURFACE_OVERSHOOT
+                        || point.x > 1.0 + MAX_SURFACE_OVERSHOOT
+                        || point.y < -MAX_SURFACE_OVERSHOOT
+                        || point.y > 1.0 + MAX_SURFACE_OVERSHOOT) {
+                    return false;
+                }
+
+                if (x == VALIDATION_STEPS
+                        || y == VALIDATION_STEPS) {
+                    continue;
+                }
+
+                Point right = surfacePoint(boundary, u + step, v);
+                Point down = surfacePoint(boundary, u, v + step);
+
+                double duX = right.x - point.x;
+                double duY = right.y - point.y;
+                double dvX = down.x - point.x;
+                double dvY = down.y - point.y;
+                double jacobian = duX * dvY - duY * dvX;
+
+                if (Math.abs(jacobian) < MIN_LOCAL_JACOBIAN
+                        || Math.signum(jacobian) != expectedSign) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     public static Bitmap warp(Bitmap input, Boundary8 normalized) {
+        if (!isValid(normalized)) {
+            throw new IllegalArgumentException(
+                    "Curved boundary folds or collapses"
+            );
+        }
+
         Boundary8 pixels = normalized.denormalized(
                 input.getWidth(),
                 input.getHeight()
@@ -26,15 +120,35 @@ public final class CurvedBoundaryCorrector {
         int width = Math.max(
                 1,
                 (int) Math.round(Math.max(
-                        edgeLength(pixels, Boundary8.TL, Boundary8.TM, Boundary8.TR),
-                        edgeLength(pixels, Boundary8.BL, Boundary8.BM, Boundary8.BR)
+                        edgeLength(
+                                pixels,
+                                Boundary8.TL,
+                                Boundary8.TM,
+                                Boundary8.TR
+                        ),
+                        edgeLength(
+                                pixels,
+                                Boundary8.BL,
+                                Boundary8.BM,
+                                Boundary8.BR
+                        )
                 ))
         );
         int height = Math.max(
                 1,
                 (int) Math.round(Math.max(
-                        edgeLength(pixels, Boundary8.TL, Boundary8.LM, Boundary8.BL),
-                        edgeLength(pixels, Boundary8.TR, Boundary8.RM, Boundary8.BR)
+                        edgeLength(
+                                pixels,
+                                Boundary8.TL,
+                                Boundary8.LM,
+                                Boundary8.BL
+                        ),
+                        edgeLength(
+                                pixels,
+                                Boundary8.TR,
+                                Boundary8.RM,
+                                Boundary8.BR
+                        )
                 ))
         );
 
@@ -176,6 +290,69 @@ public final class CurvedBoundaryCorrector {
         }
     }
 
+    private static Point surfacePoint(
+            Boundary8 boundary,
+            double u,
+            double v
+    ) {
+        Point tl = boundary.get(Boundary8.TL);
+        Point tr = boundary.get(Boundary8.TR);
+        Point br = boundary.get(Boundary8.BR);
+        Point bl = boundary.get(Boundary8.BL);
+
+        Point top = curvePoint(
+                tl,
+                boundary.get(Boundary8.TM),
+                tr,
+                u
+        );
+        Point bottom = curvePoint(
+                bl,
+                boundary.get(Boundary8.BM),
+                br,
+                u
+        );
+        Point left = curvePoint(
+                tl,
+                boundary.get(Boundary8.LM),
+                bl,
+                v
+        );
+        Point right = curvePoint(
+                tr,
+                boundary.get(Boundary8.RM),
+                br,
+                v
+        );
+
+        double oneMinusU = 1.0 - u;
+        double oneMinusV = 1.0 - v;
+
+        double bilinearX =
+                oneMinusU * oneMinusV * tl.x
+                        + u * oneMinusV * tr.x
+                        + u * v * br.x
+                        + oneMinusU * v * bl.x;
+        double bilinearY =
+                oneMinusU * oneMinusV * tl.y
+                        + u * oneMinusV * tr.y
+                        + u * v * br.y
+                        + oneMinusU * v * bl.y;
+
+        return new Point(
+                oneMinusV * top.x
+                        + v * bottom.x
+                        + oneMinusU * left.x
+                        + u * right.x
+                        - bilinearX,
+                oneMinusV * top.y
+                        + v * bottom.y
+                        + oneMinusU * left.y
+                        + u * right.y
+                        - bilinearY
+        );
+    }
+
     private static void fillCurve(
             Point start,
             Point midpointOnCurve,
@@ -183,20 +360,28 @@ public final class CurvedBoundaryCorrector {
             float[] x,
             float[] y
     ) {
-        Point control = controlFromMidpoint(
-                start,
-                midpointOnCurve,
-                end
-        );
-
         for (int i = 0; i < x.length; i++) {
             double t = x.length <= 1
                     ? 0.0
                     : i / (double) (x.length - 1);
-            Point p = quadratic(start, control, end, t);
+            Point p = curvePoint(start, midpointOnCurve, end, t);
             x[i] = (float) p.x;
             y[i] = (float) p.y;
         }
+    }
+
+    private static Point curvePoint(
+            Point start,
+            Point midpointOnCurve,
+            Point end,
+            double t
+    ) {
+        return quadratic(
+                start,
+                controlFromMidpoint(start, midpointOnCurve, end),
+                end,
+                t
+        );
     }
 
     private static double edgeLength(

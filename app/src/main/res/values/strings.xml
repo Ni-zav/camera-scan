@@ -89,4 +89,5 @@
     <string name="delete_document">Delete document</string>
     <string name="delete_document_warning">Delete “%1$s” and all of its pages? This cannot be undone.</string>
     <string name="reorder_pages_hint">Long-press a page and drag to reorder.</string>
+    <string name="curved_crop_invalid">Adjust the handles so the page boundary does not cross, fold, or collapse.</string>
 </resources>

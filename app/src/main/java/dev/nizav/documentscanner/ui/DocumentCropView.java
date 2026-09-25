@@ -18,6 +18,10 @@ import dev.nizav.documentscanner.cv.Boundary8;
 import org.opencv.core.Point;
 
 public final class DocumentCropView extends View {
+    public interface BoundaryChangeListener {
+        void onBoundaryChanged(Boundary8 boundary);
+    }
+
     private final Paint bitmapPaint = new Paint(
             Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG
     );
@@ -32,6 +36,7 @@ public final class DocumentCropView extends View {
     private Bitmap bitmap;
     private boolean editing;
     private int activeHandle = -1;
+    private BoundaryChangeListener boundaryChangeListener;
 
     private float drawLeft;
     private float drawTop;
@@ -55,6 +60,12 @@ public final class DocumentCropView extends View {
         setBackgroundColor(Color.BLACK);
     }
 
+    public void setBoundaryChangeListener(
+            @Nullable BoundaryChangeListener listener
+    ) {
+        boundaryChangeListener = listener;
+    }
+
     public void setDocument(
             Bitmap bitmap,
             @Nullable Boundary8 boundary,
@@ -73,6 +84,9 @@ public final class DocumentCropView extends View {
 
         activeHandle = -1;
         invalidate();
+        if (editing) {
+            dispatchBoundaryChanged();
+        }
     }
 
     public Boundary8 getNormalizedBoundary() {
@@ -205,6 +219,7 @@ public final class DocumentCropView extends View {
                 }
 
                 invalidate();
+                dispatchBoundaryChanged();
                 return true;
 
             case MotionEvent.ACTION_UP:
@@ -213,12 +228,20 @@ public final class DocumentCropView extends View {
                     activeHandle = -1;
                     getParent().requestDisallowInterceptTouchEvent(false);
                     invalidate();
+                    dispatchBoundaryChanged();
                     return true;
                 }
                 return false;
 
             default:
                 return false;
+        }
+    }
+
+    private void dispatchBoundaryChanged() {
+        BoundaryChangeListener listener = boundaryChangeListener;
+        if (listener != null) {
+            listener.onBoundaryChanged(getNormalizedBoundary());
         }
     }
 

@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import androidx.transition.TransitionManager;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.transition.MaterialFadeThrough;
 
 import dev.nizav.documentscanner.R;
@@ -80,6 +81,10 @@ public final class CropActivity extends MaterialMotionActivity {
         flattenButton = findViewById(R.id.flattenButton);
         saveButton = findViewById(R.id.saveButton);
         dewarpButton = findViewById(R.id.dewarpButton);
+
+        cropView.setBoundaryChangeListener(
+                this::updateBoundaryValidity
+        );
 
         findViewById(R.id.retakeButton).setOnClickListener(v -> {
             setResult(Activity.RESULT_CANCELED);
@@ -151,7 +156,6 @@ public final class CropActivity extends MaterialMotionActivity {
                     displayedBitmap = bitmap;
                     cropBoundary = Boundary8.fromQuad(detected);
                     cropView.setDocument(bitmap, cropBoundary, true);
-                    flattenButton.setEnabled(true);
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -170,6 +174,11 @@ public final class CropActivity extends MaterialMotionActivity {
         if (sourceBitmap == null) return;
 
         cropBoundary = cropView.getNormalizedBoundary();
+        if (!CurvedBoundaryCorrector.isValid(cropBoundary)) {
+            updateBoundaryValidity(cropBoundary);
+            return;
+        }
+
         transformBusy = true;
         flattenButton.setEnabled(false);
         saveButton.setEnabled(false);
@@ -204,7 +213,7 @@ public final class CropActivity extends MaterialMotionActivity {
                         new MaterialFadeThrough()
                 );
                 cropView.setDocument(warped, null, false);
-                editorHint.setText(R.string.filter_hint);
+                setEditorHint(R.string.filter_hint, false);
                 filterBar.setVisibility(View.VISIBLE);
                 flattenButton.setText(R.string.adjust);
                 flattenButton.setEnabled(true);
@@ -228,7 +237,6 @@ public final class CropActivity extends MaterialMotionActivity {
                 new MaterialFadeThrough()
         );
         cropView.setDocument(sourceBitmap, cropBoundary, true);
-        editorHint.setText(R.string.curved_crop_hint);
         filterBar.setVisibility(View.GONE);
         flattenButton.setText(R.string.flatten);
         saveButton.setEnabled(false);
@@ -240,6 +248,33 @@ public final class CropActivity extends MaterialMotionActivity {
                 }
             });
         }
+    }
+
+    private void updateBoundaryValidity(Boundary8 boundary) {
+        if (flattened || transformBusy || sourceBitmap == null) {
+            return;
+        }
+
+        boolean valid = CurvedBoundaryCorrector.isValid(boundary);
+        flattenButton.setEnabled(valid);
+        setEditorHint(
+                valid
+                        ? R.string.curved_crop_hint
+                        : R.string.curved_crop_invalid,
+                !valid
+        );
+    }
+
+    private void setEditorHint(int textRes, boolean error) {
+        editorHint.setText(textRes);
+        editorHint.setTextColor(
+                MaterialColors.getColor(
+                        editorHint,
+                        error
+                                ? com.google.android.material.R.attr.colorError
+                                : com.google.android.material.R.attr.colorOnSurfaceVariant
+                )
+        );
     }
 
     private void applyFilter(ImageEnhancer.Filter filter) {
