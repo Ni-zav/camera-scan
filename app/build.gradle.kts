@@ -59,4 +59,6 @@ dependencies {
 
     // Bundled/offline Latin OCR. The model is packaged with the APK.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+
+    testImplementation("junit:junit:4.13.2")
 }
