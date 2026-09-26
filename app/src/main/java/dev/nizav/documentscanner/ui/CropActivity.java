@@ -42,6 +42,7 @@ public final class CropActivity extends MaterialMotionActivity {
             Executors.newSingleThreadExecutor();
     private final AtomicInteger renderGeneration = new AtomicInteger();
     private final AtomicBoolean destroyed = new AtomicBoolean();
+    private final Object sourceBitmapLock = new Object();
 
     private long projectId;
     private ProjectRepository repository;
@@ -183,7 +184,14 @@ public final class CropActivity extends MaterialMotionActivity {
                     if (destroyed.get() || Thread.currentThread().isInterrupted()) {
                         return;
                     }
-                    Quad detected = BitmapUtils.detectDocument(bitmap);
+                    Quad detected;
+                    synchronized (sourceBitmapLock) {
+                        if (destroyed.get()
+                                || Thread.currentThread().isInterrupted()) {
+                            return;
+                        }
+                        detected = BitmapUtils.detectDocument(bitmap);
+                    }
                     Boundary8 detectedBoundary = Boundary8.fromQuad(detected);
 
                     runOnUiThread(() -> {
@@ -251,7 +259,13 @@ public final class CropActivity extends MaterialMotionActivity {
         int generation = renderGeneration.incrementAndGet();
 
         worker.execute(() -> {
-            Bitmap warped = CurvedBoundaryCorrector.warp(sourceBitmap, cropBoundary);
+            Bitmap warped;
+            synchronized (sourceBitmapLock) {
+                warped = CurvedBoundaryCorrector.warp(
+                        sourceBitmap,
+                        cropBoundary
+                );
+            }
             runOnUiThread(() -> {
                 if (generation != renderGeneration.get()
                         || isFinishing()
