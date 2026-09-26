@@ -92,7 +92,7 @@
                 android:layout_marginHorizontal="18dp"
                 android:contentDescription="@string/capture"
                 app:backgroundTint="#FFFFFF"
-                app:customSize="72dp"
+                app:fabCustomSize="72dp"
                 app:srcCompat="@drawable/ic_camera"
                 app:tint="#101010" />
 
