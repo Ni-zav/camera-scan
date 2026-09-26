@@ -57,8 +57,7 @@ public abstract class MaterialMotionActivity extends AppCompatActivity {
 
         applyBottomMarginInset(findFirst(
                 R.id.newDocumentButton,
-                R.id.scanButton,
-                R.id.captureButton
+                R.id.scanButton
         ));
 
         applyBottomPaddingInset(findFirst(

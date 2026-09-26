@@ -272,6 +272,7 @@ public final class CropActivity extends MaterialMotionActivity {
                 filterBar.setVisibility(View.VISIBLE);
                 flattenButton.setText(R.string.adjust);
                 flattenButton.setEnabled(true);
+                saveButton.setVisibility(View.VISIBLE);
                 saveButton.setEnabled(true);
                 dewarpButton.setEnabled(true);
             });
@@ -295,6 +296,7 @@ public final class CropActivity extends MaterialMotionActivity {
         filterBar.setVisibility(View.GONE);
         flattenButton.setText(R.string.flatten);
         saveButton.setEnabled(false);
+        saveButton.setVisibility(View.GONE);
 
         if (oldBase != null && oldBase != sourceBitmap) {
             worker.execute(() -> {

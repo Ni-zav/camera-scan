@@ -28,6 +28,8 @@ public final class DocumentCropView extends View {
     private final Paint edgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint cornerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint midpointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint handleOutlinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint shadePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path boundaryPath = new Path();
     private final float density;
 
@@ -54,8 +56,15 @@ public final class DocumentCropView extends View {
         cornerPaint.setColor(Color.WHITE);
         cornerPaint.setStyle(Paint.Style.FILL);
 
-        midpointPaint.setColor(Color.argb(235, 210, 235, 255));
+        midpointPaint.setColor(Color.argb(255, 210, 235, 255));
         midpointPaint.setStyle(Paint.Style.FILL);
+
+        handleOutlinePaint.setColor(Color.argb(190, 0, 0, 0));
+        handleOutlinePaint.setStyle(Paint.Style.STROKE);
+        handleOutlinePaint.setStrokeWidth(2f * density);
+
+        shadePaint.setColor(Color.argb(118, 0, 0, 0));
+        shadePaint.setStyle(Paint.Style.FILL);
 
         setBackgroundColor(Color.BLACK);
     }
@@ -159,14 +168,34 @@ public final class DocumentCropView extends View {
                 Boundary8.TL
         );
         boundaryPath.close();
+
+        Path outside = new Path(boundaryPath);
+        outside.setFillType(Path.FillType.INVERSE_EVEN_ODD);
+        canvas.save();
+        canvas.clipRect(
+                drawLeft,
+                drawTop,
+                drawLeft + drawWidth,
+                drawTop + drawHeight
+        );
+        canvas.drawPath(outside, shadePaint);
+        canvas.restore();
+
         canvas.drawPath(boundaryPath, edgePaint);
 
         for (int i = 0; i < 8; i++) {
             boolean corner = i % 2 == 0;
+            float radius = (corner ? 9f : 6.5f) * density;
             canvas.drawCircle(
                     viewX(i),
                     viewY(i),
-                    (corner ? 9f : 6.5f) * density,
+                    radius + 1.5f * density,
+                    handleOutlinePaint
+            );
+            canvas.drawCircle(
+                    viewX(i),
+                    viewY(i),
+                    radius,
                     corner ? cornerPaint : midpointPaint
             );
         }
