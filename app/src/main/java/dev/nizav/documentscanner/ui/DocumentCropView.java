@@ -98,6 +98,13 @@ public final class DocumentCropView extends View {
         }
     }
 
+    public void clearDocument() {
+        bitmap = null;
+        editing = false;
+        activeHandle = -1;
+        invalidate();
+    }
+
     public Boundary8 getNormalizedBoundary() {
         Point[] points = new Point[8];
         for (int i = 0; i < 8; i++) {

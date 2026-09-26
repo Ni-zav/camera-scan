@@ -539,9 +539,14 @@ public final class CropActivity extends MaterialMotionActivity {
                 repository.addPage(projectId, bitmap);
                 runOnUiThread(() -> {
                     if (destroyed.get() || isFinishing() || isDestroyed()) {
+                        if (!bitmap.isRecycled()) {
+                            bitmap.recycle();
+                        }
                         return;
                     }
+
                     edgeDetectionProgress.setVisibility(View.GONE);
+                    releaseSavedBitmap(bitmap);
                     setResult(Activity.RESULT_OK);
                     finish();
                 });
@@ -570,6 +575,24 @@ public final class CropActivity extends MaterialMotionActivity {
                 });
             }
         });
+    }
+
+    private void releaseSavedBitmap(Bitmap saved) {
+        cropView.clearDocument();
+
+        if (displayedBitmap == saved) {
+            displayedBitmap = null;
+        }
+        if (baseWarped == saved) {
+            baseWarped = null;
+        }
+        if (sourceBitmap == saved) {
+            sourceBitmap = null;
+        }
+
+        if (!saved.isRecycled()) {
+            saved.recycle();
+        }
     }
 
     private void releaseUnusedBitmapsBeforeSave(Bitmap bitmapToSave) {
@@ -638,6 +661,14 @@ public final class CropActivity extends MaterialMotionActivity {
                 && base != displayedBitmap
                 && !base.isRecycled()) {
             base.recycle();
+        }
+
+        Bitmap display = displayedBitmap;
+        displayedBitmap = null;
+        cropView.clearDocument();
+        if (display != null
+                && !display.isRecycled()) {
+            display.recycle();
         }
         super.onDestroy();
     }
