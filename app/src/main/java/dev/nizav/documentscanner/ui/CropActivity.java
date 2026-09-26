@@ -36,6 +36,8 @@ public final class CropActivity extends MaterialMotionActivity {
     private static final int MAX_DECODE_EDGE = 3072;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService detectionWorker =
+            Executors.newSingleThreadExecutor();
     private final AtomicInteger renderGeneration = new AtomicInteger();
 
     private long projectId;
@@ -173,26 +175,28 @@ public final class CropActivity extends MaterialMotionActivity {
                     setEditorHint(R.string.finding_edges, false);
                 });
 
-                Quad detected = BitmapUtils.detectDocument(bitmap);
-                Boundary8 detectedBoundary = Boundary8.fromQuad(detected);
+                detectionWorker.execute(() -> {
+                    Quad detected = BitmapUtils.detectDocument(bitmap);
+                    Boundary8 detectedBoundary = Boundary8.fromQuad(detected);
 
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) {
-                        return;
-                    }
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
 
-                    edgeDetectionProgress.setVisibility(View.GONE);
-                    if (!userAdjustedBoundary && !flattened) {
-                        cropBoundary = detectedBoundary;
-                        setBoundaryProgrammatically(
-                                bitmap,
-                                detectedBoundary
-                        );
-                    } else {
-                        updateBoundaryValidity(
-                                cropView.getNormalizedBoundary()
-                        );
-                    }
+                        edgeDetectionProgress.setVisibility(View.GONE);
+                        if (!userAdjustedBoundary && !flattened) {
+                            cropBoundary = detectedBoundary;
+                            setBoundaryProgrammatically(
+                                    bitmap,
+                                    detectedBoundary
+                            );
+                        } else if (!flattened) {
+                            updateBoundaryValidity(
+                                    cropView.getNormalizedBoundary()
+                            );
+                        }
+                    });
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -463,6 +467,7 @@ public final class CropActivity extends MaterialMotionActivity {
     @Override
     protected void onDestroy() {
         renderGeneration.incrementAndGet();
+        detectionWorker.shutdownNow();
         worker.shutdown();
         super.onDestroy();
     }

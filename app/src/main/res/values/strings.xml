@@ -99,4 +99,5 @@
     <string name="add_first_page_description">Scan a paper document or import photos already on your phone.</string>
     <string name="text_action">Text</string>
     <string name="pdf_action">PDF</string>
+    <string name="import_batch_canceled">Import canceled.</string>
 </resources>

@@ -523,11 +523,23 @@ public final class ProjectActivity extends MaterialMotionActivity {
     private void onCropResult(ActivityResult result) {
         File completed = activeImport;
         activeImport = null;
-        if (completed != null) {
-            ImportQueueStore.complete(completed);
+
+        if (result.getResultCode() == RESULT_OK) {
+            if (completed != null) {
+                ImportQueueStore.complete(completed);
+            }
+            loadProject();
+            launchNextImportIfNeeded();
+            return;
         }
+
+        ImportQueueStore.clear(this, projectId);
         loadProject();
-        launchNextImportIfNeeded();
+        Toast.makeText(
+                this,
+                R.string.import_batch_canceled,
+                Toast.LENGTH_SHORT
+        ).show();
     }
 
     private void indexProjectText() {
