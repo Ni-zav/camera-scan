@@ -15,67 +15,98 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/scanToolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="#66000000"
-        app:navigationIcon="@drawable/ic_back"
-        app:navigationIconTint="#FFFFFF"
-        app:title="@string/scan_page"
-        app:titleTextColor="#FFFFFF" />
-
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="72dp"
-        app:cardBackgroundColor="#CC151515"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="0dp">
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="9dp"
-            android:text="@string/status_searching"
-            android:textColor="#FFFFFF"
-            android:textAppearance="@style/TextAppearance.Material3.LabelLarge" />
-    </com.google.android.material.card.MaterialCardView>
-
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:id="@+id/scanTopChrome"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="76dp"
-        android:layout_marginEnd="12dp"
+        android:layout_gravity="top"
         android:orientation="vertical">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/torchButton"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/torch" />
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/scanToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="#88000000"
+            app:navigationIcon="@drawable/ic_back"
+            app:navigationIconTint="#FFFFFF"
+            app:title="@string/scan_page"
+            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge"
+            app:titleTextColor="#FFFFFF" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/autoCaptureButton"
-            style="@style/Widget.Material3.Button.TonalButton"
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/auto_on" />
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            app:cardBackgroundColor="#D91B1B1B"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp">
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"
+                android:text="@string/status_searching"
+                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                android:textColor="#FFFFFF" />
+        </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/captureButton"
-        android:layout_width="wrap_content"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/scanBottomControls"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="28dp"
-        android:text="@string/capture"
-        app:icon="@drawable/ic_camera" />
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginBottom="12dp"
+        app:cardBackgroundColor="#E61A1A1A"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/torchButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="@string/torch"
+                android:textColor="#FFFFFF"
+                app:icon="@drawable/ic_flash"
+                app:iconTint="#FFFFFF" />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/captureButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="18dp"
+                android:contentDescription="@string/capture"
+                app:backgroundTint="#FFFFFF"
+                app:customSize="72dp"
+                app:srcCompat="@drawable/ic_camera"
+                app:tint="#101010" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/autoCaptureButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="@string/auto_on"
+                android:textColor="#FFFFFF"
+                app:icon="@drawable/ic_auto"
+                app:iconTint="#FFFFFF" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </FrameLayout>

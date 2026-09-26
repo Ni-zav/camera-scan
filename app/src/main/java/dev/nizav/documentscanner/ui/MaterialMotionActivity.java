@@ -47,6 +47,7 @@ public abstract class MaterialMotionActivity extends AppCompatActivity {
 
     private void applyCommonInsets() {
         applyTopMarginInset(findFirst(
+                R.id.scanTopChrome,
                 R.id.homeToolbar,
                 R.id.projectToolbar,
                 R.id.scanToolbar,
@@ -61,6 +62,7 @@ public abstract class MaterialMotionActivity extends AppCompatActivity {
         ));
 
         applyBottomPaddingInset(findFirst(
+                R.id.scanBottomControls,
                 R.id.editorBottomBar
         ));
     }

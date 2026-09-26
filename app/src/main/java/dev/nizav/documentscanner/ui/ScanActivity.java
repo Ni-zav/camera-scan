@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Size;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.WindowManager;
 import android.widget.TextView;
@@ -33,7 +34,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import dev.nizav.documentscanner.R;
@@ -56,7 +57,7 @@ public final class ScanActivity extends MaterialMotionActivity {
     private PreviewView previewView;
     private DocumentOverlayView overlay;
     private TextView statusText;
-    private ExtendedFloatingActionButton captureButton;
+    private FloatingActionButton captureButton;
     private MaterialButton torchButton;
     private MaterialButton autoCaptureButton;
 
@@ -121,7 +122,10 @@ public final class ScanActivity extends MaterialMotionActivity {
                 PreviewView.ImplementationMode.PERFORMANCE
         );
 
-        captureButton.setOnClickListener(v -> capture());
+        captureButton.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            capture();
+        });
         torchButton.setOnClickListener(v -> toggleTorch());
         autoCaptureButton.setOnClickListener(v -> {
             autoCaptureEnabled = !autoCaptureEnabled;
