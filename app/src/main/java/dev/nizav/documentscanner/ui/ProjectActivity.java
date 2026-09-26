@@ -464,7 +464,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
             return;
         }
 
-        importButton.setEnabled(false);
+        setImportEnabled(false);
         projectLoading.setVisibility(View.VISIBLE);
         worker.execute(() -> {
             try {
@@ -474,7 +474,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                         uris
                 );
                 runOnUiThread(() -> {
-                    importButton.setEnabled(true);
+                    setImportEnabled(true);
                     projectLoading.setVisibility(View.GONE);
                     if (copied == 0) {
                         Toast.makeText(
@@ -488,7 +488,7 @@ public final class ProjectActivity extends MaterialMotionActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    importButton.setEnabled(true);
+                    setImportEnabled(true);
                     projectLoading.setVisibility(View.GONE);
                     Toast.makeText(
                             this,
@@ -501,6 +501,11 @@ public final class ProjectActivity extends MaterialMotionActivity {
                 });
             }
         });
+    }
+
+    private void setImportEnabled(boolean enabled) {
+        importButton.setEnabled(enabled);
+        emptyImportButton.setEnabled(enabled);
     }
 
     private void launchNextImportIfNeeded() {
