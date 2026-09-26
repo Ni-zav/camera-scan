@@ -56,6 +56,7 @@ public final class CropActivity extends MaterialMotionActivity {
     private Button dewarpButton;
     private LinearProgressIndicator edgeDetectionProgress;
 
+    private File sourceFile;
     private Bitmap sourceBitmap;
     private Bitmap baseWarped;
     private Bitmap displayedBitmap;
@@ -149,7 +150,8 @@ public final class CropActivity extends MaterialMotionActivity {
         }
 
         flattenButton.setEnabled(false);
-        loadSource(new File(path));
+        sourceFile = new File(path);
+        loadSource(sourceFile);
     }
 
     private void loadSource(File file) {
@@ -288,6 +290,14 @@ public final class CropActivity extends MaterialMotionActivity {
                 flattened = true;
                 transformBusy = false;
 
+                Bitmap oldSource = sourceBitmap;
+                sourceBitmap = null;
+                if (oldSource != null
+                        && oldSource != warped
+                        && !oldSource.isRecycled()) {
+                    oldSource.recycle();
+                }
+
                 TransitionManager.beginDelayedTransition(
                         editorRoot,
                         new MaterialFadeThrough()
@@ -306,31 +316,91 @@ public final class CropActivity extends MaterialMotionActivity {
     }
 
     private void returnToCrop() {
-        renderGeneration.incrementAndGet();
-        recycleTransientDisplay();
-
-        Bitmap oldBase = baseWarped;
-        baseWarped = null;
-
-        displayedBitmap = sourceBitmap;
-        flattened = false;
-        TransitionManager.beginDelayedTransition(
-                editorRoot,
-                new MaterialFadeThrough()
-        );
-        setBoundaryProgrammatically(sourceBitmap, cropBoundary);
-        filterBar.setVisibility(View.GONE);
-        flattenButton.setText(R.string.flatten);
-        saveButton.setEnabled(false);
-        saveButton.setVisibility(View.GONE);
-
-        if (oldBase != null && oldBase != sourceBitmap) {
-            worker.execute(() -> {
-                if (!oldBase.isRecycled()) {
-                    oldBase.recycle();
-                }
-            });
+        if (transformBusy) {
+            return;
         }
+
+        File file = sourceFile;
+        if (file == null) {
+            return;
+        }
+
+        transformBusy = true;
+        renderGeneration.incrementAndGet();
+        saveButton.setEnabled(false);
+        flattenButton.setEnabled(false);
+        dewarpButton.setEnabled(false);
+        edgeDetectionProgress.setVisibility(View.VISIBLE);
+        setEditorHint(R.string.loading_original, false);
+
+        worker.execute(() -> {
+            try {
+                Bitmap restored = BitmapUtils.decodeOriented(
+                        file,
+                        MAX_DECODE_EDGE
+                );
+
+                runOnUiThread(() -> {
+                    if (destroyed.get()
+                            || isFinishing()
+                            || isDestroyed()) {
+                        restored.recycle();
+                        return;
+                    }
+
+                    recycleTransientDisplay();
+
+                    Bitmap oldBase = baseWarped;
+                    baseWarped = null;
+                    sourceBitmap = restored;
+                    displayedBitmap = restored;
+                    flattened = false;
+                    transformBusy = false;
+
+                    TransitionManager.beginDelayedTransition(
+                            editorRoot,
+                            new MaterialFadeThrough()
+                    );
+                    setBoundaryProgrammatically(restored, cropBoundary);
+                    filterBar.setVisibility(View.GONE);
+                    flattenButton.setText(R.string.flatten);
+                    saveButton.setEnabled(false);
+                    saveButton.setVisibility(View.GONE);
+                    dewarpButton.setEnabled(false);
+                    edgeDetectionProgress.setVisibility(View.GONE);
+
+                    if (oldBase != null
+                            && oldBase != restored
+                            && !oldBase.isRecycled()) {
+                        oldBase.recycle();
+                    }
+                });
+            } catch (Exception error) {
+                ScannerApp.recordHandledFailure(
+                        "restore-original",
+                        error
+                );
+                runOnUiThread(() -> {
+                    if (destroyed.get()
+                            || isFinishing()
+                            || isDestroyed()) {
+                        return;
+                    }
+                    transformBusy = false;
+                    edgeDetectionProgress.setVisibility(View.GONE);
+                    flattenButton.setEnabled(true);
+                    dewarpButton.setEnabled(true);
+                    Toast.makeText(
+                            this,
+                            getString(
+                                    R.string.restore_original_failed,
+                                    safeMessage(error)
+                            ),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+            }
+        });
     }
 
     private void updateBoundaryValidity(Boundary8 boundary) {
@@ -457,6 +527,7 @@ public final class CropActivity extends MaterialMotionActivity {
 
         cancelEdgeDetection();
         transformBusy = true;
+        releaseUnusedBitmapsBeforeSave(bitmap);
         saveButton.setEnabled(false);
         flattenButton.setEnabled(false);
         dewarpButton.setEnabled(false);
@@ -501,6 +572,24 @@ public final class CropActivity extends MaterialMotionActivity {
         });
     }
 
+    private void releaseUnusedBitmapsBeforeSave(Bitmap bitmapToSave) {
+        Bitmap source = sourceBitmap;
+        sourceBitmap = null;
+        if (source != null
+                && source != bitmapToSave
+                && !source.isRecycled()) {
+            source.recycle();
+        }
+
+        Bitmap base = baseWarped;
+        if (base != null
+                && base != bitmapToSave
+                && !base.isRecycled()) {
+            base.recycle();
+            baseWarped = null;
+        }
+    }
+
     private void cancelEdgeDetection() {
         Future<?> future = detectionFuture;
         detectionFuture = null;
@@ -534,6 +623,22 @@ public final class CropActivity extends MaterialMotionActivity {
         detectionWorker.shutdownNow();
         worker.shutdown();
         cropView.setBoundaryChangeListener(null);
+
+        Bitmap source = sourceBitmap;
+        sourceBitmap = null;
+        if (source != null
+                && source != displayedBitmap
+                && !source.isRecycled()) {
+            source.recycle();
+        }
+
+        Bitmap base = baseWarped;
+        baseWarped = null;
+        if (base != null
+                && base != displayedBitmap
+                && !base.isRecycled()) {
+            base.recycle();
+        }
         super.onDestroy();
     }
 }

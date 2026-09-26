@@ -103,4 +103,6 @@
     <string name="create_document_failed">Couldn’t create a document.</string>
     <string name="saving_page">Adding page…</string>
     <string name="save_page_failed">Couldn’t add page: %1$s</string>
+    <string name="loading_original">Reopening original…</string>
+    <string name="restore_original_failed">Couldn’t reopen the original: %1$s</string>
 </resources>
