@@ -10,11 +10,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.transition.TransitionManager;
 
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.transition.MaterialFadeThrough;
 
 import dev.nizav.documentscanner.data.ProjectRepository;
@@ -63,7 +61,7 @@ public final class MainActivity extends MaterialMotionActivity {
         recycler.setAdapter(adapter);
         recycler.setHasFixedSize(true);
 
-        newDocumentButton.setOnClickListener(v -> showNewDocumentDialog());
+        newDocumentButton.setOnClickListener(v -> createDocument());
     }
 
     @Override
@@ -116,43 +114,33 @@ public final class MainActivity extends MaterialMotionActivity {
         });
     }
 
-    private void showNewDocumentDialog() {
-        View content = getLayoutInflater().inflate(
-                R.layout.dialog_new_project,
-                null,
-                false
-        );
-        TextInputEditText input = content.findViewById(R.id.projectNameInput);
+    private void createDocument() {
+        newDocumentButton.setEnabled(false);
 
-        MaterialAlertDialogBuilder builder =
-                new MaterialAlertDialogBuilder(this)
-                        .setTitle(R.string.new_document)
-                        .setMessage(R.string.new_document_hint)
-                        .setView(content)
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .setPositiveButton(R.string.create_document, null);
-
-        androidx.appcompat.app.AlertDialog dialog = builder.create();
-        dialog.setOnShowListener(ignored ->
-                dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
-                        .setOnClickListener(v -> {
-                            String name = input.getText() == null
-                                    ? null
-                                    : input.getText().toString();
-                            dialog.getButton(
-                                    androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE
-                            ).setEnabled(false);
-
-                            worker.execute(() -> {
-                                long projectId = repository.createProject(name);
-                                runOnUiThread(() -> {
-                                    dialog.dismiss();
-                                    openProject(projectId);
-                                });
-                            });
-                        })
-        );
-        dialog.show();
+        worker.execute(() -> {
+            try {
+                long projectId = repository.createProject(null);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    newDocumentButton.setEnabled(true);
+                    openProject(projectId);
+                });
+            } catch (RuntimeException e) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    newDocumentButton.setEnabled(true);
+                    Snackbar.make(
+                            newDocumentButton,
+                            R.string.create_document_failed,
+                            Snackbar.LENGTH_LONG
+                    ).show();
+                });
+            }
+        });
     }
 
     private void openProject(long projectId) {

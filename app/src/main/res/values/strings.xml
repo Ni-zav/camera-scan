@@ -100,4 +100,5 @@
     <string name="text_action">Text</string>
     <string name="pdf_action">PDF</string>
     <string name="import_batch_canceled">Import canceled.</string>
+    <string name="create_document_failed">Couldn’t create a document.</string>
 </resources>
