@@ -61,6 +61,9 @@ public final class ProjectActivity extends MaterialMotionActivity {
     private MaterialToolbar toolbar;
     private RecyclerView recycler;
     private View emptyState;
+    private View contentWithPages;
+    private MaterialButton emptyScanButton;
+    private MaterialButton emptyImportButton;
     private TextView indexStatus;
     private TextView indexPreview;
     private TextView reorderHint;
@@ -104,6 +107,9 @@ public final class ProjectActivity extends MaterialMotionActivity {
         toolbar = findViewById(R.id.projectToolbar);
         recycler = findViewById(R.id.pageList);
         emptyState = findViewById(R.id.pageEmptyState);
+        contentWithPages = findViewById(R.id.contentWithPages);
+        emptyScanButton = findViewById(R.id.emptyScanButton);
+        emptyImportButton = findViewById(R.id.emptyImportButton);
         indexStatus = findViewById(R.id.indexStatus);
         indexPreview = findViewById(R.id.indexPreview);
         reorderHint = findViewById(R.id.pageReorderHint);
@@ -146,13 +152,11 @@ public final class ProjectActivity extends MaterialMotionActivity {
 
         attachPageReordering();
 
-        scanButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, ScanActivity.class);
-            intent.putExtra(ScanActivity.EXTRA_PROJECT_ID, projectId);
-            startActivity(intent);
-        });
+        scanButton.setOnClickListener(v -> openScanner());
+        emptyScanButton.setOnClickListener(v -> openScanner());
 
         importButton.setOnClickListener(v -> launchGallery());
+        emptyImportButton.setOnClickListener(v -> launchGallery());
 
         ocrButton.setEnabled(false);
         exportButton.setEnabled(false);
@@ -295,7 +299,11 @@ public final class ProjectActivity extends MaterialMotionActivity {
 
         adapter.submitList(pages);
         boolean empty = pages.isEmpty();
+
         emptyState.setVisibility(empty ? View.VISIBLE : View.GONE);
+        contentWithPages.setVisibility(empty ? View.GONE : View.VISIBLE);
+        scanButton.setVisibility(empty ? View.GONE : View.VISIBLE);
+
         recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
         reorderHint.setVisibility(
                 pages.size() > 1 ? View.VISIBLE : View.GONE
@@ -426,6 +434,12 @@ public final class ProjectActivity extends MaterialMotionActivity {
                         })
                 )
                 .show();
+    }
+
+    private void openScanner() {
+        Intent intent = new Intent(this, ScanActivity.class);
+        intent.putExtra(ScanActivity.EXTRA_PROJECT_ID, projectId);
+        startActivity(intent);
     }
 
     private void openPage(long pageId) {
