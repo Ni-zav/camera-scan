@@ -28,6 +28,8 @@ import dev.nizav.documentscanner.util.BitmapUtils;
 import java.io.File;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class CropActivity extends MaterialMotionActivity {
@@ -39,6 +41,7 @@ public final class CropActivity extends MaterialMotionActivity {
     private final ExecutorService detectionWorker =
             Executors.newSingleThreadExecutor();
     private final AtomicInteger renderGeneration = new AtomicInteger();
+    private final AtomicBoolean destroyed = new AtomicBoolean();
 
     private long projectId;
     private ProjectRepository repository;
@@ -60,6 +63,7 @@ public final class CropActivity extends MaterialMotionActivity {
     private boolean transformBusy;
     private boolean applyingBoundary;
     private boolean userAdjustedBoundary;
+    private Future<?> detectionFuture;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,12 +179,15 @@ public final class CropActivity extends MaterialMotionActivity {
                     setEditorHint(R.string.finding_edges, false);
                 });
 
-                detectionWorker.execute(() -> {
+                detectionFuture = detectionWorker.submit(() -> {
+                    if (destroyed.get() || Thread.currentThread().isInterrupted()) {
+                        return;
+                    }
                     Quad detected = BitmapUtils.detectDocument(bitmap);
                     Boundary8 detectedBoundary = Boundary8.fromQuad(detected);
 
                     runOnUiThread(() -> {
-                        if (isFinishing() || isDestroyed()) {
+                        if (destroyed.get() || isFinishing() || isDestroyed()) {
                             return;
                         }
 
@@ -230,6 +237,7 @@ public final class CropActivity extends MaterialMotionActivity {
 
     private void flatten() {
         if (sourceBitmap == null) return;
+        cancelEdgeDetection();
 
         cropBoundary = cropView.getNormalizedBoundary();
         if (!CurvedBoundaryCorrector.isValid(cropBoundary)) {
@@ -429,30 +437,70 @@ public final class CropActivity extends MaterialMotionActivity {
 
     private void savePage() {
         Bitmap bitmap = displayedBitmap;
-        if (!flattened || bitmap == null || bitmap.isRecycled()) return;
+        if (!flattened || bitmap == null || bitmap.isRecycled()) {
+            return;
+        }
 
+        cancelEdgeDetection();
+        transformBusy = true;
         saveButton.setEnabled(false);
         flattenButton.setEnabled(false);
+        dewarpButton.setEnabled(false);
+        edgeDetectionProgress.setVisibility(View.VISIBLE);
+        setEditorHint(R.string.saving_page, false);
 
         worker.execute(() -> {
             try {
                 repository.addPage(projectId, bitmap);
                 runOnUiThread(() -> {
+                    if (destroyed.get() || isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    edgeDetectionProgress.setVisibility(View.GONE);
                     setResult(Activity.RESULT_OK);
                     finish();
                 });
-            } catch (Exception e) {
+            } catch (Throwable e) {
+                ScannerApp.recordHandledFailure(
+                        "save-page",
+                        e
+                );
                 runOnUiThread(() -> {
+                    if (destroyed.get() || isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    transformBusy = false;
+                    edgeDetectionProgress.setVisibility(View.GONE);
                     saveButton.setEnabled(true);
                     flattenButton.setEnabled(true);
+                    dewarpButton.setEnabled(true);
                     Toast.makeText(
                             this,
-                            "Save failed: " + e.getMessage(),
+                            getString(
+                                    R.string.save_page_failed,
+                                    safeMessage(e)
+                            ),
                             Toast.LENGTH_LONG
                     ).show();
                 });
             }
         });
+    }
+
+    private void cancelEdgeDetection() {
+        Future<?> future = detectionFuture;
+        detectionFuture = null;
+        if (future != null && !future.isDone()) {
+            future.cancel(true);
+        }
+        edgeDetectionProgress.setVisibility(View.GONE);
+    }
+
+    private static String safeMessage(Throwable error) {
+        String message = error.getMessage();
+        return message == null || message.trim().isEmpty()
+                ? error.getClass().getSimpleName()
+                : message;
     }
 
     private void recycleTransientDisplay() {
@@ -466,9 +514,12 @@ public final class CropActivity extends MaterialMotionActivity {
 
     @Override
     protected void onDestroy() {
+        destroyed.set(true);
         renderGeneration.incrementAndGet();
+        cancelEdgeDetection();
         detectionWorker.shutdownNow();
         worker.shutdown();
+        cropView.setBoundaryChangeListener(null);
         super.onDestroy();
     }
 }

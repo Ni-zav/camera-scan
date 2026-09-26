@@ -101,4 +101,6 @@
     <string name="pdf_action">PDF</string>
     <string name="import_batch_canceled">Import canceled.</string>
     <string name="create_document_failed">Couldn’t create a document.</string>
+    <string name="saving_page">Adding page…</string>
+    <string name="save_page_failed">Couldn’t add page: %1$s</string>
 </resources>
