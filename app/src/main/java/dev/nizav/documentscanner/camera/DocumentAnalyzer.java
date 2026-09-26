@@ -46,13 +46,19 @@ public final class DocumentAnalyzer implements ImageAnalysis.Analyzer, AutoClose
     private byte[] yBytes = new byte[0];
     private byte[] rowBytes = new byte[0];
     private long lastAnalysisNs;
+    private boolean closed;
 
     public DocumentAnalyzer(Listener listener) {
         this.listener = listener;
     }
 
     @Override
-    public void analyze(@NonNull ImageProxy image) {
+    public synchronized void analyze(@NonNull ImageProxy image) {
+        if (closed) {
+            image.close();
+            return;
+        }
+
         long now = SystemClock.elapsedRealtimeNanos();
         if (now - lastAnalysisNs < MIN_ANALYSIS_INTERVAL_NS) {
             image.close();
@@ -107,7 +113,10 @@ public final class DocumentAnalyzer implements ImageAnalysis.Analyzer, AutoClose
         }
     }
 
-    public void resetAutoCapture() {
+    public synchronized void resetAutoCapture() {
+        if (closed) {
+            return;
+        }
         autoCaptureGate.reset();
         consensus.reset();
         stabilizer.reset();
@@ -183,7 +192,11 @@ public final class DocumentAnalyzer implements ImageAnalysis.Analyzer, AutoClose
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
         detector.close();
         qualityEstimator.close();
         rawGray.release();

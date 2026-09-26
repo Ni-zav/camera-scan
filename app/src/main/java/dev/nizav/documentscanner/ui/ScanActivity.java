@@ -63,6 +63,7 @@ public final class ScanActivity extends MaterialMotionActivity {
 
     private ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
+    private ImageAnalysis imageAnalysis;
     private Camera camera;
     private DocumentAnalyzer analyzer;
 
@@ -211,9 +212,7 @@ public final class ScanActivity extends MaterialMotionActivity {
                 )
                 .build();
 
-        if (analyzer != null) {
-            analyzer.close();
-        }
+        disposeAnalyzerUseCase();
 
         analyzer = new DocumentAnalyzer(
                 (quad, stable, score, quality, ready) ->
@@ -228,6 +227,7 @@ public final class ScanActivity extends MaterialMotionActivity {
                             }
                         })
         );
+        imageAnalysis = analysis;
         analysis.setAnalyzer(analyzerExecutor, analyzer);
 
         cameraProvider.unbindAll();
@@ -405,16 +405,34 @@ public final class ScanActivity extends MaterialMotionActivity {
         }
     }
 
+    private void disposeAnalyzerUseCase() {
+        ImageAnalysis oldAnalysis = imageAnalysis;
+        imageAnalysis = null;
+        if (oldAnalysis != null) {
+            oldAnalysis.clearAnalyzer();
+        }
+
+        DocumentAnalyzer oldAnalyzer = analyzer;
+        analyzer = null;
+        if (oldAnalyzer != null) {
+            try {
+                analyzerExecutor.execute(oldAnalyzer::close);
+            } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                // Executor teardown already started. Do not release OpenCV
+                // Mats from the UI thread while analysis may still be active.
+            }
+        }
+    }
+
     @Override
     protected void onDestroy() {
-        if (analyzer != null) {
-            analyzer.close();
-            analyzer = null;
-        }
+        disposeAnalyzerUseCase();
+
         if (cameraProvider != null) {
             cameraProvider.unbindAll();
         }
-        analyzerExecutor.shutdownNow();
+
+        analyzerExecutor.shutdown();
         super.onDestroy();
     }
 }

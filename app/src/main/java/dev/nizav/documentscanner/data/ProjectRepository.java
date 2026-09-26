@@ -11,6 +11,7 @@ import dev.nizav.documentscanner.data.db.ProjectRow;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.SyncFailedException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,39 +54,78 @@ public final class ProjectRepository {
     }
 
     public File addPage(long projectId, Bitmap bitmap) throws IOException {
-        ProjectEntity project = requireProject(projectId);
+        if (bitmap == null || bitmap.isRecycled()) {
+            throw new IOException("Page bitmap is unavailable");
+        }
+
+        requireProject(projectId);
+
         File dir = pageDirectory(projectId);
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IOException("Unable to create project page directory");
         }
 
-        File output = new File(
-                dir,
+        String baseName =
                 "page_" + System.currentTimeMillis() + "_"
-                        + UUID.randomUUID().toString().substring(0, 8) + ".jpg"
-        );
+                        + UUID.randomUUID().toString().substring(0, 8);
+        File temp = new File(dir, baseName + ".tmp");
+        File output = new File(dir, baseName + ".jpg");
 
-        try (FileOutputStream stream = new FileOutputStream(output)) {
-            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)) {
+        try (FileOutputStream stream = new FileOutputStream(temp)) {
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 93, stream)) {
                 throw new IOException("Unable to encode project page");
             }
+            stream.flush();
+            try {
+                stream.getFD().sync();
+            } catch (SyncFailedException ignored) {
+                // A few OEM/filesystem combinations may not support fsync
+                // here. FileOutputStream.flush() has still completed.
+            }
+        } catch (OutOfMemoryError error) {
+            temp.delete();
+            throw new IOException(
+                    "Not enough memory to save this page",
+                    error
+            );
+        }
+
+        if (!temp.isFile() || temp.length() <= 0L) {
+            temp.delete();
+            throw new IOException("Encoded page is empty");
+        }
+
+        if (!temp.renameTo(output)) {
+            temp.delete();
+            throw new IOException("Unable to finalize project page");
         }
 
         try {
             long now = System.currentTimeMillis();
-            PageEntity page = new PageEntity();
-            page.projectId = projectId;
-            page.position = db.pageDao().maxPosition(projectId) + 1;
-            page.filePath = output.getAbsolutePath();
-            page.ocrText = null;
-            page.ocrDataJson = null;
-            page.ocrUpdatedAt = 0L;
-            page.createdAt = now;
-            page.updatedAt = now;
-            db.pageDao().insert(page);
 
-            project.updatedAt = now;
-            db.projectDao().update(project);
+            db.runInTransaction(() -> {
+                ProjectEntity project = db.projectDao().get(projectId);
+                if (project == null) {
+                    throw new IllegalStateException(
+                            "Project no longer exists"
+                    );
+                }
+
+                PageEntity page = new PageEntity();
+                page.projectId = projectId;
+                page.position = db.pageDao().maxPosition(projectId) + 1;
+                page.filePath = output.getAbsolutePath();
+                page.ocrText = null;
+                page.ocrDataJson = null;
+                page.ocrUpdatedAt = 0L;
+                page.createdAt = now;
+                page.updatedAt = now;
+                db.pageDao().insert(page);
+
+                project.updatedAt = now;
+                db.projectDao().update(project);
+            });
+
             return output;
         } catch (RuntimeException e) {
             output.delete();
