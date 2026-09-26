@@ -92,4 +92,7 @@
     <string name="curved_crop_invalid">Adjust the handles so the page boundary does not cross, fold, or collapse.</string>
     <string name="save_changes">Save</string>
     <string name="load_documents_failed">Couldn’t load documents. Try reopening the app.</string>
+    <string name="loading_image">Opening page…</string>
+    <string name="finding_edges">Page ready. Finding paper edges… You can adjust now.</string>
+    <string name="image_open_failed">Couldn’t open this image: %1$s</string>
 </resources>

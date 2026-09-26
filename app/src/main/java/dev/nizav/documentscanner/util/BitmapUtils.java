@@ -21,7 +21,10 @@ public final class BitmapUtils {
     private BitmapUtils() {
     }
 
-    public static Bitmap decodeOriented(File file, int maxEdge) throws IOException {
+    public static Bitmap decodeOriented(
+            File file,
+            int maxEdge
+    ) throws IOException {
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
@@ -40,37 +43,16 @@ public final class BitmapUtils {
         decode.inSampleSize = sample;
         decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
 
-        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), decode);
+        Bitmap bitmap = BitmapFactory.decodeFile(
+                file.getAbsolutePath(),
+                decode
+        );
         if (bitmap == null) {
             throw new IOException("Unable to decode image");
         }
 
-        ExifInterface exif = new ExifInterface(file);
-        int orientation = exif.getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_NORMAL
-        );
-
-        Matrix matrix = new Matrix();
-        switch (orientation) {
-            case ExifInterface.ORIENTATION_ROTATE_90:
-                matrix.postRotate(90f);
-                break;
-            case ExifInterface.ORIENTATION_ROTATE_180:
-                matrix.postRotate(180f);
-                break;
-            case ExifInterface.ORIENTATION_ROTATE_270:
-                matrix.postRotate(270f);
-                break;
-            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
-                matrix.postScale(-1f, 1f);
-                break;
-            case ExifInterface.ORIENTATION_FLIP_VERTICAL:
-                matrix.postScale(1f, -1f);
-                break;
-            default:
-                break;
-        }
+        int orientation = readOrientationSafely(file);
+        Matrix matrix = orientationMatrix(orientation);
 
         if (matrix.isIdentity()) {
             return bitmap;
@@ -91,6 +73,17 @@ public final class BitmapUtils {
         return oriented;
     }
 
+    public static boolean canDecode(File file) {
+        if (file == null || !file.isFile() || file.length() <= 0L) {
+            return false;
+        }
+
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+        return bounds.outWidth > 0 && bounds.outHeight > 0;
+    }
+
     public static Quad detectDocument(Bitmap bitmap) {
         Mat rgba = new Mat();
         Mat gray = new Mat();
@@ -106,11 +99,62 @@ public final class BitmapUtils {
             gray.release();
         }
 
+        return defaultQuad();
+    }
+
+    public static Quad defaultQuad() {
         return Quad.fromFloatArray(new float[]{
                 0.04f, 0.04f,
                 0.96f, 0.04f,
                 0.96f, 0.96f,
                 0.04f, 0.96f
         });
+    }
+
+    private static int readOrientationSafely(File file) {
+        try {
+            ExifInterface exif = new ExifInterface(file);
+            return exif.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+            );
+        } catch (IOException | RuntimeException ignored) {
+            // An otherwise decodable image should not be rejected only
+            // because it has no EXIF container or the OEM/provider produced
+            // metadata ExifInterface does not understand.
+            return ExifInterface.ORIENTATION_NORMAL;
+        }
+    }
+
+    private static Matrix orientationMatrix(int orientation) {
+        Matrix matrix = new Matrix();
+        switch (orientation) {
+            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
+                matrix.postScale(-1f, 1f);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                matrix.postRotate(180f);
+                break;
+            case ExifInterface.ORIENTATION_FLIP_VERTICAL:
+                matrix.postScale(1f, -1f);
+                break;
+            case ExifInterface.ORIENTATION_TRANSPOSE:
+                matrix.postRotate(90f);
+                matrix.postScale(-1f, 1f);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                matrix.postRotate(90f);
+                break;
+            case ExifInterface.ORIENTATION_TRANSVERSE:
+                matrix.postRotate(270f);
+                matrix.postScale(-1f, 1f);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                matrix.postRotate(270f);
+                break;
+            default:
+                break;
+        }
+        return matrix;
     }
 }

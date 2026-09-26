@@ -441,7 +441,6 @@ public final class ProjectActivity extends MaterialMotionActivity {
                                 ActivityResultContracts.PickVisualMedia
                                         .ImageOnly.INSTANCE
                         )
-                        .setMaxItems(20)
                         .build();
         galleryLauncher.launch(request);
     }

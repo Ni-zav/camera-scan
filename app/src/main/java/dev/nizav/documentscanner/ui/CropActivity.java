@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import androidx.transition.TransitionManager;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.transition.MaterialFadeThrough;
 
 import dev.nizav.documentscanner.R;
@@ -47,6 +48,7 @@ public final class CropActivity extends MaterialMotionActivity {
     private Button flattenButton;
     private Button saveButton;
     private Button dewarpButton;
+    private LinearProgressIndicator edgeDetectionProgress;
 
     private Bitmap sourceBitmap;
     private Bitmap baseWarped;
@@ -54,6 +56,8 @@ public final class CropActivity extends MaterialMotionActivity {
     private Boundary8 cropBoundary;
     private boolean flattened;
     private boolean transformBusy;
+    private boolean applyingBoundary;
+    private boolean userAdjustedBoundary;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,10 +84,14 @@ public final class CropActivity extends MaterialMotionActivity {
         flattenButton = findViewById(R.id.flattenButton);
         saveButton = findViewById(R.id.saveButton);
         dewarpButton = findViewById(R.id.dewarpButton);
+        edgeDetectionProgress = findViewById(R.id.edgeDetectionProgress);
 
-        cropView.setBoundaryChangeListener(
-                this::updateBoundaryValidity
-        );
+        cropView.setBoundaryChangeListener(boundary -> {
+            if (!applyingBoundary) {
+                userAdjustedBoundary = true;
+            }
+            updateBoundaryValidity(boundary);
+        });
 
         findViewById(R.id.retakeButton).setOnClickListener(v -> {
             setResult(Activity.RESULT_CANCELED);
@@ -138,35 +146,82 @@ public final class CropActivity extends MaterialMotionActivity {
     }
 
     private void loadSource(File file) {
+        edgeDetectionProgress.setVisibility(View.VISIBLE);
+        setEditorHint(R.string.loading_image, false);
+
         worker.execute(() -> {
             try {
                 Bitmap bitmap = BitmapUtils.decodeOriented(
                         file,
                         MAX_DECODE_EDGE
                 );
-                Quad detected = BitmapUtils.detectDocument(bitmap);
+
+                Boundary8 fallback = Boundary8.fromQuad(
+                        BitmapUtils.defaultQuad()
+                );
 
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) {
                         bitmap.recycle();
                         return;
                     }
+
                     sourceBitmap = bitmap;
                     displayedBitmap = bitmap;
-                    cropBoundary = Boundary8.fromQuad(detected);
-                    cropView.setDocument(bitmap, cropBoundary, true);
+                    cropBoundary = fallback;
+                    setBoundaryProgrammatically(bitmap, fallback);
+                    setEditorHint(R.string.finding_edges, false);
+                });
+
+                Quad detected = BitmapUtils.detectDocument(bitmap);
+                Boundary8 detectedBoundary = Boundary8.fromQuad(detected);
+
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+
+                    edgeDetectionProgress.setVisibility(View.GONE);
+                    if (!userAdjustedBoundary && !flattened) {
+                        cropBoundary = detectedBoundary;
+                        setBoundaryProgrammatically(
+                                bitmap,
+                                detectedBoundary
+                        );
+                    } else {
+                        updateBoundaryValidity(
+                                cropView.getNormalizedBoundary()
+                        );
+                    }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    edgeDetectionProgress.setVisibility(View.GONE);
                     Toast.makeText(
                             this,
-                            "Unable to open capture: " + e.getMessage(),
+                            getString(
+                                    R.string.image_open_failed,
+                                    e.getMessage()
+                            ),
                             Toast.LENGTH_LONG
                     ).show();
                     finish();
                 });
             }
         });
+    }
+
+    private void setBoundaryProgrammatically(
+            Bitmap bitmap,
+            Boundary8 boundary
+    ) {
+        applyingBoundary = true;
+        try {
+            cropView.setDocument(bitmap, boundary, true);
+            updateBoundaryValidity(boundary);
+        } finally {
+            applyingBoundary = false;
+        }
     }
 
     private void flatten() {
@@ -211,6 +266,7 @@ public final class CropActivity extends MaterialMotionActivity {
                         editorRoot,
                         new MaterialFadeThrough()
                 );
+                edgeDetectionProgress.setVisibility(View.GONE);
                 cropView.setDocument(warped, null, false);
                 setEditorHint(R.string.filter_hint, false);
                 filterBar.setVisibility(View.VISIBLE);
@@ -235,7 +291,7 @@ public final class CropActivity extends MaterialMotionActivity {
                 editorRoot,
                 new MaterialFadeThrough()
         );
-        cropView.setDocument(sourceBitmap, cropBoundary, true);
+        setBoundaryProgrammatically(sourceBitmap, cropBoundary);
         filterBar.setVisibility(View.GONE);
         flattenButton.setText(R.string.flatten);
         saveButton.setEnabled(false);

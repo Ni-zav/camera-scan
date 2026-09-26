@@ -34,7 +34,6 @@ import androidx.core.content.ContextCompat;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import dev.nizav.documentscanner.R;
@@ -392,11 +391,9 @@ public final class ScanActivity extends MaterialMotionActivity {
         }
 
         if (result.getResultCode() == RESULT_OK) {
-            Snackbar.make(
-                    captureButton,
-                    R.string.page_added,
-                    Snackbar.LENGTH_SHORT
-            ).show();
+            setResult(RESULT_OK);
+            finish();
+            return;
         }
 
         if (analyzer != null) {

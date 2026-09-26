@@ -1,7 +1,12 @@
 package dev.nizav.documentscanner.data;
 
+import android.content.ContentResolver;
 import android.content.Context;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.webkit.MimeTypeMap;
+
+import dev.nizav.documentscanner.util.BitmapUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -10,6 +15,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public final class ImportQueueStore {
     private static final String DIR = "document_scanner_import_queue";
@@ -29,22 +35,24 @@ public final class ImportQueueStore {
             throw new IOException("Unable to create import queue");
         }
 
+        ContentResolver resolver = context.getContentResolver();
         byte[] buffer = new byte[64 * 1024];
         int written = 0;
 
         for (int i = 0; i < uris.size(); i++) {
             Uri uri = uris.get(i);
+            String extension = extensionFor(resolver.getType(uri));
             File target = new File(
                     root,
                     String.format(
-                            java.util.Locale.US,
-                            "source_%04d.img",
-                            i + 1
+                            Locale.US,
+                            "source_%04d.%s",
+                            i + 1,
+                            extension
                     )
             );
 
-            try (InputStream input =
-                         context.getContentResolver().openInputStream(uri);
+            try (InputStream input = resolver.openInputStream(uri);
                  FileOutputStream output = new FileOutputStream(target)) {
                 if (input == null) {
                     target.delete();
@@ -55,12 +63,21 @@ public final class ImportQueueStore {
                 while ((read = input.read(buffer)) != -1) {
                     output.write(buffer, 0, read);
                 }
+                output.flush();
+
+                if (!BitmapUtils.canDecode(target)) {
+                    target.delete();
+                    continue;
+                }
                 written++;
-            } catch (IOException e) {
+            } catch (Exception e) {
                 target.delete();
             }
         }
 
+        if (written == 0) {
+            clear(context, projectId);
+        }
         return written;
     }
 
@@ -102,6 +119,18 @@ public final class ImportQueueStore {
             }
         }
         root.delete();
+    }
+
+    private static String extensionFor(String mimeType) {
+        if (mimeType == null) {
+            return "img";
+        }
+        String extension = MimeTypeMap.getSingleton()
+                .getExtensionFromMimeType(mimeType);
+        if (extension == null || extension.trim().isEmpty()) {
+            return "img";
+        }
+        return extension.toLowerCase(Locale.US);
     }
 
     private static File root(Context context, long projectId) {
